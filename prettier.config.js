@@ -1,11 +1,11 @@
 const options = {
-  arrowPattern: "avoid",
+  arrowPattern: 'avoid',
   singleQuote: true,
   bracketSpacing: true,
-  endOfLine: "lf",
+  endOfLine: 'lf',
   semi: false,
   tabWidth: 2,
-  trailingComma: "none",
-};
+  trailingComma: 'none'
+}
 
-module.exports = options;
+module.exports = options

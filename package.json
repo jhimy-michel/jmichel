@@ -1,8 +1,7 @@
 {
-  "name": "jmichel",
+  "name": "jmichel-homepage",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
@@ -14,8 +13,9 @@
     "url": "git+https://github.com/jhimy-michel/jmichel.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "jhimy-michel",
+  "license": "MIT",
+  "main": "index.js",
   "bugs": {
     "url": "https://github.com/jhimy-michel/jmichel/issues"
   },
