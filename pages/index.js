@@ -3,9 +3,14 @@ import {
   Box,
   Heading,
   Image,
-  useColorModeValue
+  useColorModeValue,
+  Button
 } from '@chakra-ui/react'
+import NextLink from 'next/link'
 import Section from '../components/section'
+import Paragraph from '../components/paragraph'
+import { ChevronRightIcon } from '@chakra-ui/icons'
+import { BioSection, BioYear } from '../components/bio'
 
 const Home = () => {
   return (
@@ -49,7 +54,31 @@ const Home = () => {
         <Heading as="h3" variant="section-title">
           Work
         </Heading>
-        <p>Paragraph</p>
+        <Paragraph>
+          Add here all the text that can be used for presentation about you and
+          your work
+        </Paragraph>
+        <Box align="center" my={4}>
+          <NextLink href="/works">
+            <Button rightIcon={<ChevronRightIcon />} colorScheme="teal">
+              My portfolio
+            </Button>
+          </NextLink>
+        </Box>
+      </Section>
+      <Section delay={0.2}>
+        <Heading as="h3" variant="section-title">
+          Bio
+        </Heading>
+        <BioSection>
+          <BioYear>1996</BioYear>
+          Born in La Paz, Bolivia.
+        </BioSection>
+        <BioSection>
+          <BioYear>2019</BioYear>
+          Bachelor Degree in Systems Information Engineering, Univalle, La Paz
+          Bolivia.
+        </BioSection>
       </Section>
     </Container>
   )
