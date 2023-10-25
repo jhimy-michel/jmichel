@@ -6,7 +6,9 @@ import {
   useColorModeValue,
   Button
 } from '@chakra-ui/react'
+import Link from 'next/link'
 import NextLink from 'next/link'
+
 import Section from '../components/section'
 import Paragraph from '../components/paragraph'
 import { ChevronRightIcon } from '@chakra-ui/icons'
@@ -79,6 +81,15 @@ const Home = () => {
           Bachelor Degree in Systems Information Engineering, Univalle, La Paz
           Bolivia.
         </BioSection>
+      </Section>
+
+      <Section delay={0.3}>
+        <Heading as="h3" variant="section-title">
+          I love
+        </Heading>
+        <Paragraph>
+          Art, Music, <Link href="">Drawing</Link>
+        </Paragraph>
       </Section>
     </Container>
   )
