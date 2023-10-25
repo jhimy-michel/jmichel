@@ -2,7 +2,7 @@ import { Container, Heading, SimpleGrid, Divider } from '@chakra-ui/react'
 import Section from '../components/section'
 import { WorkGridItem } from '../components/grid-item'
 
-import thumbInkDrop from '../public/images/works/inkdrop_01.png'
+//import thumbInkDrop from '../public/images/works/inkdrop_01.png'
 import Layout from '../components/layouts/article'
 
 const Works = () => {
@@ -14,12 +14,12 @@ const Works = () => {
         </Heading>
         <SimpleGrid columns={[1, 1, 2]} gap={6}>
           <Section>
-            <WorkGridItem id="inkdrop" title="Inkdrop" tumbnail={thumbInkDrop}>
+            <WorkGridItem id="inkdrop" title="Inkdrop" /* tumbnail={thumbInkDrop} */>
               A markdown not-taking app
             </WorkGridItem>
           </Section>
           <Section>
-            <WorkGridItem id="inkdrop" title="Inkdrop" tumbnail={thumbInkDrop}>
+            <WorkGridItem id="inkdrop" title="Inkdrop" /* tumbnail={thumbInkDrop} */>
               A markdown not-taking app
             </WorkGridItem>
           </Section>
