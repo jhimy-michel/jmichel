@@ -50,7 +50,7 @@ const Home = () => {
               display="inline-block"
               borderRadius="full"
               alt="profile image"
-              src="/images/takuya.jpg"
+              src="/images/jhimy.jpg"
             />
           </Box>
         </Box>
