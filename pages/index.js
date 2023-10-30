@@ -59,16 +59,16 @@ const Home = () => {
             <Heading as="h3" variant="section-title">
               Hi,
             </Heading>
-            Welcome to my digital world. I'm Jhimy Michel, a versatile
+            Welcome to my digital world. I&apos;m Jhimy Michel, a versatile
             full-stack developer living in the vibrant city of Zurich. I have an
             unbridled passion for crafting innovative digital solutions and
             thrive on the art of transforming ideas into reality. I originate
             from the Amazonas region of Bolivia, where I grew up amidst the lush
             rainforests, and my journey has taken me to the towering heights of
             the Andes mountains, enriching my creative palette with diverse
-            experiences and perspectives. I'm more than just a developer; I'm a
+            experiences and perspectives. I&apos;m more than just a developer; I&apos;m a
             creator, problem solver, and an avid explorer of the digital realm.
-            When I'm not immersed in the digital world, I find solace in the
+            When I&apos;m not immersed in the digital world, I find solace in the
             real one, capturing moments through my lens. My love for photography
             adds a unique dimension to my creative process, providing a fresh
             perspective on the world around me. Explore my world of innovation
