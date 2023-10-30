@@ -55,12 +55,27 @@ const Home = () => {
           </Box>
         </Box>
         <Section delay={0.1}>
-          <Heading as="h3" variant="section-title">
-            Work
-          </Heading>
           <Paragraph>
-            Add here all the text that can be used for presentation about you
-            and your work
+            <Heading as="h3" variant="section-title">
+              Hi,
+            </Heading>
+            Welcome to my digital world. I'm Jhimy Michel, a versatile
+            full-stack developer living in the vibrant city of Zurich. I have an
+            unbridled passion for crafting innovative digital solutions and
+            thrive on the art of transforming ideas into reality. I originate
+            from the Amazonas region of Bolivia, where I grew up amidst the lush
+            rainforests, and my journey has taken me to the towering heights of
+            the Andes mountains, enriching my creative palette with diverse
+            experiences and perspectives. I'm more than just a developer; I'm a
+            creator, problem solver, and an avid explorer of the digital realm.
+            When I'm not immersed in the digital world, I find solace in the
+            real one, capturing moments through my lens. My love for photography
+            adds a unique dimension to my creative process, providing a fresh
+            perspective on the world around me. Explore my world of innovation
+            and creativity here in Zurich, where my digital expertise and
+            passion for the real world converge to shape extraordinary
+            solutions, influenced by my diverse cultural heritage and remarkable
+            life journey.
           </Paragraph>
           <Box align="center" my={4}>
             <NextLink href="/works">
