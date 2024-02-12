@@ -26,14 +26,14 @@ const Home = () => {
           align="center"
           mb={6}
         >
-          Hello, I&apos;m a full-stack developer based in Switzerland!
+          Hello, I&apos;m a full-stack developer based in Switzerland 🇨🇭
         </Box>
         <Box display={{ md: 'flex' }}>
           <Box flexGrow={1}>
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            <p>Digital Cratfzman (Artist / Developer/ )</p>
+            <p>Software Engineer / Writer / Artist </p>
           </Box>
 
           <Box
@@ -59,31 +59,20 @@ const Home = () => {
             <Heading as="h3" variant="section-title">
               Hi,
             </Heading>
-            Welcome to my digital world. I&apos;m Jhimy Michel, a versatile
-            full-stack developer living in the vibrant city of Zurich. I have an
-            unbridled passion for crafting innovative digital solutions and
-            thrive on the art of transforming ideas into reality. I originate
-            from the Amazonas region of Bolivia, where I grew up amidst the lush
-            rainforests, and my journey has taken me to the towering heights of
-            the Andes mountains, enriching my creative palette with diverse
-            experiences and perspectives. I&apos;m more than just a developer; I&apos;m a
-            creator, problem solver, and an avid explorer of the digital realm.
-            When I&apos;m not immersed in the digital world, I find solace in the
-            real one, capturing moments through my lens. My love for photography
-            adds a unique dimension to my creative process, providing a fresh
-            perspective on the world around me. Explore my world of innovation
-            and creativity here in Zurich, where my digital expertise and
-            passion for the real world converge to shape extraordinary
-            solutions, influenced by my diverse cultural heritage and remarkable
-            life journey.
+            Welcome to my digital world! I&apos;m Jhimy Michel, a full-stack
+            developer originally from Bolivia and now based in Zurich.
+            Passionate about crafting innovative digital solutions, I also have
+            a keen interest in writing and photography. Drawing from my diverse
+            experiences and cultural background, I strive to bring creativity
+            and efficiency to every project I undertake.
           </Paragraph>
-          <Box align="center" my={4}>
+          {/* <Box align="center" my={4}>
             <NextLink href="/works">
               <Button rightIcon={<ChevronRightIcon />} colorScheme="teal">
                 My portfolio
               </Button>
             </NextLink>
-          </Box>
+          </Box> */}
         </Section>
         <Section delay={0.2}>
           <Heading as="h3" variant="section-title">
@@ -94,9 +83,20 @@ const Home = () => {
             Born in La Paz, Bolivia.
           </BioSection>
           <BioSection>
-            <BioYear>2019</BioYear>
-            Bachelor Degree in Systems Information Engineering, Univalle, La Paz
-            Bolivia.
+            <BioYear>2014 - 2020</BioYear>
+            Bachelor Degree in Systems Information Engineering,{' '}
+            <a href="https://www.univalle.edu/" target="_blank">
+              Del Valle University
+            </a>
+            , La Paz - Bolivia.
+          </BioSection>
+          <BioSection>
+            <BioYear>2021 - 2022</BioYear>
+            Master in Computer Sciences,{' '}
+            <a href="https://www.zhaw.ch/en/university/" target="_blank">
+              Zurich University of Applied Sciences
+            </a>
+            , Zurich - Switzerland.
           </BioSection>
         </Section>
 
@@ -105,7 +105,8 @@ const Home = () => {
             I love
           </Heading>
           <Paragraph>
-            Art, Music, <Link href="">Drawing</Link>
+            Arts, Sports, Music, and Writing{' '}
+            {/* <Link href="">Drawing</Link> */}
           </Paragraph>
         </Section>
       </Container>
