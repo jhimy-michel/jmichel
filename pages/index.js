@@ -3,7 +3,7 @@ import {
   Box,
   Heading,
   Image,
-  useColorModeValue,
+  useColorModeValue
   // Button
 } from '@chakra-ui/react'
 /* import Link from 'next/link'
@@ -33,7 +33,7 @@ const Home = () => {
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            <p>Software Engineer / Writer / Artist </p>
+            <p>Tech Aficionado / Innovative Mind / Cultural Explorer </p>
           </Box>
 
           <Box
@@ -83,18 +83,41 @@ const Home = () => {
             Born in La Paz, Bolivia.
           </BioSection>
           <BioSection>
-            <BioYear>2014 - 2020</BioYear>
-            Bachelor Degree in Systems Information Engineering,{' '}
+            <BioYear>2018</BioYear>
+            Software Developer,{' '}
+            <a href="https://newvisiondata.com/" target="_blank">
+              New Vision Data
+            </a>
+            , La Paz - Bolivia.
+          </BioSection>
+          <BioSection>
+            <BioYear>2020</BioYear>
+            Systems Information Engineering,{' '}
             <a href="https://www.univalle.edu/" target="_blank">
               Del Valle University
             </a>
             , La Paz - Bolivia.
           </BioSection>
+          {/* <BioSection>
+            <BioYear>2020</BioYear>
+            Full stack developer, Kaleidosim AG , Zurich - Switzerland.
+          </BioSection> */}
           <BioSection>
             <BioYear>2021 - 2022</BioYear>
             Master in Computer Sciences,{' '}
             <a href="https://www.zhaw.ch/en/university/" target="_blank">
               Zurich University of Applied Sciences
+            </a>
+            , Zurich - Switzerland.
+          </BioSection>
+          <BioSection>
+            <BioYear>2023 - Present</BioYear>
+            Assistant Research,{' '}
+            <a
+              href="https://www.zhaw.ch/en/engineering/institutes-centres/icp-institute-of-computational-physics/"
+              target="_blank"
+            >
+              Institute of Computational Physics ZHAW
             </a>
             , Zurich - Switzerland.
           </BioSection>
