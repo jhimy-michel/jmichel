@@ -4,14 +4,14 @@ import {
   Heading,
   Image,
   useColorModeValue,
-  Button
+  // Button
 } from '@chakra-ui/react'
-import Link from 'next/link'
+/* import Link from 'next/link'
 import NextLink from 'next/link'
+import { ChevronRightIcon } from '@chakra-ui/icons' */
 
 import Section from '../components/section'
 import Paragraph from '../components/paragraph'
-import { ChevronRightIcon } from '@chakra-ui/icons'
 import { BioSection, BioYear } from '../components/bio'
 import Layout from '../components/layouts/article'
 
