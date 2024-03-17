@@ -27,7 +27,7 @@ const Home = () => {
           align="center"
           mb={6}
         >
-          Hello, I&apos;m a full-stack developer based in Switzerland 🇨🇭
+          Hello, I&apos;m a Software Engineer based in Switzerland 🇨🇭
         </Box>
         <Box display={{ md: 'flex' }}>
           <Box flexGrow={1}>
@@ -60,10 +60,10 @@ const Home = () => {
             <Heading as="h3" variant="section-title">
               Hi,
             </Heading>
-            Welcome to my digital world! I&apos;m Jhimy Michel, a full-stack
-            developer originally from Bolivia and now based in Zurich.
-            Passionate about crafting innovative digital solutions, I also have
-            a keen interest in writing and photography. Drawing from my diverse
+            Welcome to my digital world! I&apos;m Jhimy Michel, a Software
+            Engineer originally from Bolivia and now based in Zurich. Passionate
+            about crafting innovative digital solutions, I also have a keen
+            interest in writing and photography. Drawing from my diverse
             experiences and cultural background, I strive to bring creativity
             and efficiency to every project I undertake.
           </Paragraph>
@@ -82,7 +82,7 @@ const Home = () => {
           <BioSection>
             <BioYear>2018</BioYear>
             Software Developer,{' '}
-            <Link href="https://newvisiondata.com/" target="_blank" >
+            <Link href="https://newvisiondata.com/" target="_blank">
               New Vision Data
             </Link>
             , La Paz - Bolivia.
