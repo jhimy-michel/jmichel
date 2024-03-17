@@ -3,7 +3,8 @@ import {
   Box,
   Heading,
   Image,
-  useColorModeValue
+  useColorModeValue,
+  Link
   // Button
 } from '@chakra-ui/react'
 /* import Link from 'next/link'
@@ -79,23 +80,19 @@ const Home = () => {
             Bio
           </Heading>
           <BioSection>
-            <BioYear>1996</BioYear>
-            Born in La Paz, Bolivia.
-          </BioSection>
-          <BioSection>
             <BioYear>2018</BioYear>
             Software Developer,{' '}
-            <a href="https://newvisiondata.com/" target="_blank">
+            <Link href="https://newvisiondata.com/" target="_blank" >
               New Vision Data
-            </a>
+            </Link>
             , La Paz - Bolivia.
           </BioSection>
           <BioSection>
             <BioYear>2020</BioYear>
             Systems Information Engineering,{' '}
-            <a href="https://www.univalle.edu/" target="_blank">
+            <Link href="https://www.univalle.edu/" target="_blank">
               Del Valle University
-            </a>
+            </Link>
             , La Paz - Bolivia.
           </BioSection>
           {/* <BioSection>
@@ -105,20 +102,20 @@ const Home = () => {
           <BioSection>
             <BioYear>2021 - 2022</BioYear>
             Master in Computer Sciences,{' '}
-            <a href="https://www.zhaw.ch/en/university/" target="_blank">
+            <Link href="https://www.zhaw.ch/en/university/" target="_blank">
               Zurich University of Applied Sciences
-            </a>
+            </Link>
             , Zurich - Switzerland.
           </BioSection>
           <BioSection>
             <BioYear>2023 - Present</BioYear>
             Assistant Research,{' '}
-            <a
+            <Link
               href="https://www.zhaw.ch/en/engineering/institutes-centres/icp-institute-of-computational-physics/"
               target="_blank"
             >
               Institute of Computational Physics ZHAW
-            </a>
+            </Link>
             , Zurich - Switzerland.
           </BioSection>
         </Section>
@@ -128,7 +125,7 @@ const Home = () => {
             I love
           </Heading>
           <Paragraph>
-            Arts, Sports, Music, and Writing{' '}
+            Arts, Sports, Music, Photography and Writing{' '}
             {/* <Link href="">Drawing</Link> */}
           </Paragraph>
         </Section>
