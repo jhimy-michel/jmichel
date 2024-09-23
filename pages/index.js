@@ -4,12 +4,19 @@ import {
   Heading,
   Image,
   useColorModeValue,
-  Link
-  // Button
+  Link,
+  Button,
+  List,
+  ListItem
 } from '@chakra-ui/react'
-/* import Link from 'next/link'
 import NextLink from 'next/link'
-import { ChevronRightIcon } from '@chakra-ui/icons' */
+import { ChevronRightIcon } from '@chakra-ui/icons'
+import {
+  IoLogoTwitter,
+  IoLogoInstagram,
+  IoLogoGithub,
+  IoLogoLinkedin
+} from 'react-icons/io5'
 
 import Section from '../components/section'
 import Paragraph from '../components/paragraph'
@@ -37,7 +44,7 @@ const Home = () => {
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            <p>Tech Aficionado / Innovative Mind / Cultural Explorer </p>
+            {/* <p>Tech Aficionado / Innovative Mind / Cultural Explorer </p> */}
           </Box>
 
           <Box
@@ -61,10 +68,10 @@ const Home = () => {
         <Section delay={0.1}>
           <Paragraph>
             <Heading as="h3" variant="section-title">
-              Hi,
+              Hi/ Hola/ Grüezi,
             </Heading>
-            Welcome to my digital world! I&apos;m Jhimy Michel, a Software
-            Engineer originally from Bolivia and now based in Zurich.
+            Welcome to my digital space! I&apos;m Jhimy Michel, a Software
+            Engineer from Bolivia, now based in Zurich.
           </Paragraph>
           {/* <Box align="center" my={4}>
             <NextLink href="/works">
@@ -84,30 +91,18 @@ const Home = () => {
             <Link href="https://newvisiondata.com/" target="_blank">
               New Vision Data
             </Link>
-            , La Paz - Bolivia.
+            , Bolivia.
           </BioSection>
           <BioSection>
             <BioYear>2020</BioYear>
-            Systems Information Engineering,{' '}
-            <Link href="https://www.univalle.edu/" target="_blank">
-              Del Valle University
+            Software Engineer,{' '}
+            <Link href="https://kaleidosim.com/" target="_blank">
+              Kaleidosim AG
             </Link>
-            , La Paz - Bolivia.
-          </BioSection>
-          {/* <BioSection>
-            <BioYear>2020</BioYear>
-            Full stack developer, Kaleidosim AG , Zurich - Switzerland.
-          </BioSection> */}
-          <BioSection>
-            <BioYear>2021 - 2022</BioYear>
-            Master in Computer Sciences,{' '}
-            <Link href="https://www.zhaw.ch/en/university/" target="_blank">
-              Zurich University of Applied Sciences
-            </Link>
-            , Zurich - Switzerland.
+            , Switzerland.
           </BioSection>
           <BioSection>
-            <BioYear>2023 - 2024</BioYear>
+            <BioYear>2023</BioYear>
             Research Assistant,{' '}
             <Link
               href="https://www.zhaw.ch/en/engineering/institutes-centres/icp-institute-of-computational-physics/"
@@ -115,18 +110,63 @@ const Home = () => {
             >
               Institute of Computational Physics ZHAW
             </Link>
-            , Zurich - Switzerland.
+            , Switzerland.
           </BioSection>
         </Section>
-
         <Section delay={0.3}>
           <Heading as="h3" variant="section-title">
             I love
           </Heading>
           <Paragraph>
-            Arts, Sports, Music, Photography and Writing{' '}
+            Arts, Sports, Music, Photography and Writing.{' '}
             {/* <Link href="">Drawing</Link> */}
           </Paragraph>
+        </Section>
+        <Section delay={0.3}>
+          <Heading as="h3" variant="section-title">
+            On the internet
+          </Heading>
+          <List>
+            <ListItem>
+              <Link href="https://github.com/jhimy-michel" target="_blank">
+                <Button
+                  variant="ghost"
+                  colorScheme="teal"
+                  leftIcon={<IoLogoGithub />}
+                >
+                  @jhimy-michel
+                </Button>
+              </Link>
+            </ListItem>
+            <ListItem>
+              <Link
+                href="https://www.linkedin.com/in/jhimy-michel/"
+                target="_blank"
+              >
+                <Button
+                  variant="ghost"
+                  colorScheme="teal"
+                  leftIcon={<IoLogoLinkedin />}
+                >
+                  @jhimy-michel
+                </Button>
+              </Link>
+            </ListItem>
+            <ListItem>
+              <Link
+                href="https://www.instagram.com/jhimymichel/"
+                target="_blank"
+              >
+                <Button
+                  variant="ghost"
+                  colorScheme="teal"
+                  leftIcon={<IoLogoInstagram />}
+                >
+                  @jhimymichel
+                </Button>
+              </Link>
+            </ListItem>
+          </List>
         </Section>
       </Container>
     </Layout>

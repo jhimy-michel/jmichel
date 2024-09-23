@@ -17,8 +17,9 @@ import {
 
 import { HamburgerIcon } from '@chakra-ui/icons'
 import ThemeToggleButton from './theme-toggle-button'
+import { IoLogoGithub } from 'react-icons/io5'
 
-/* const LinkItem = ({ href, path, children }) => {
+const LinkItem = ({ href, path, children }) => {
   const active = path === href
   const inactiveColor = useColorModeValue('gray200', 'whiteAlpha.900')
 
@@ -33,10 +34,11 @@ import ThemeToggleButton from './theme-toggle-button'
       </Link>
     </NextLink>
   )
-} */
+}
 
 const NavBar = (props) => {
-  // const { path } = props
+  const { path } = props
+  console.log(props)
 
   return (
     <Box
@@ -75,6 +77,18 @@ const NavBar = (props) => {
           <LinkItem href="/posts" path={path}>
             Posts
           </LinkItem> */}
+          {/* <LinkItem
+            target="_blank"
+            href="https://github.com/jhimy-michel/jmichel"
+            path={path}
+            display="inline-flex"
+            alignItems="center"
+            style={{ gap: 4 }}
+            pl={2}
+          >
+            <IoLogoGithub />
+            Source
+          </LinkItem> */}
         </Stack>
 
         <Box flex={1} align="right">
@@ -88,7 +102,7 @@ const NavBar = (props) => {
                 aria-label="Options"
               />
               <MenuList>
-                <NextLink href="/" passHref>
+                {/* <NextLink href="/" passHref>
                   <MenuItem as={Link}>About</MenuItem>
                 </NextLink>
                 <NextLink href="/works" passHref>
@@ -96,10 +110,9 @@ const NavBar = (props) => {
                 </NextLink>
                 <NextLink href="/posts" passHref>
                   <MenuItem as={Link}>Posts</MenuItem>
-                </NextLink>
-                {/*
-                  <MenuItem as={Link} href="mye github repo">View shource</MenuItem>
-                 */}
+                </NextLink> */}
+
+                {/* <MenuItem as={Link} href="mye github repo">View shource</MenuItem> */}
               </MenuList>
             </Menu>
           </Box>

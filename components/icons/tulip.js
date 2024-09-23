@@ -13,7 +13,7 @@ const TulipIcon = (props) => {
       xmlnsXlink="http://www.w3.org/1999/xlink"
       aria-hidden="true"
       role="img"
-      class="iconify iconify--noto"
+      className="iconify iconify--noto"
       preserveAspectRatio="xMidYMid meet"
       {...props}
     >
@@ -38,7 +38,7 @@ const TulipIcon = (props) => {
 
       <path
         d="M77.22 116.12c0-13.6-6.92-17.32-6.92-17.32c-22.28-27.22-48.5-35.38-48.5-35.38l-.25 5.44c5.71.21 35.37 26.97 43.48 38.33c3.15 4.41 3.75 7.5 3.75 7.5l8.44 1.43z"
-        clip-path="url(#IconifyId17ecdb2904d178eab21235)"
+        clipPath="url(#IconifyId17ecdb2904d178eab21235)"
         fill="#bdcf46"
       ></path>
 
@@ -79,7 +79,7 @@ const TulipIcon = (props) => {
 
         <path
           d="M58.82 124.07s.6-3.09 3.75-7.5c8.1-11.36 37.77-38.12 43.48-38.33l-.25-5.44s-26.22 8.16-48.5 35.38c0 0-6.92 3.71-6.92 17.32l8.44-1.43z"
-          clip-path="url(#IconifyId17ecdb2904d178eab21237)"
+          clipPath="url(#IconifyId17ecdb2904d178eab21237)"
           fill="#bdcf46"
         ></path>
       </g>
