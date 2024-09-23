@@ -9,10 +9,10 @@ import {
   List,
   ListItem
 } from '@chakra-ui/react'
-import NextLink from 'next/link'
-import { ChevronRightIcon } from '@chakra-ui/icons'
+/* import NextLink from 'next/link'
+import { ChevronRightIcon } from '@chakra-ui/icons' */
 import {
-  IoLogoTwitter,
+  
   IoLogoInstagram,
   IoLogoGithub,
   IoLogoLinkedin
