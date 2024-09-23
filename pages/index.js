@@ -27,7 +27,10 @@ const Home = () => {
           align="center"
           mb={6}
         >
-          Hello, I&apos;m a Software Engineer based in Switzerland 🇨🇭
+          Hello, I&apos;m a Software Engineer based in Switzerland{' '}
+          <span role="img" aria-label="Switzerland">
+            🇨🇭
+          </span>
         </Box>
         <Box display={{ md: 'flex' }}>
           <Box flexGrow={1}>
@@ -61,11 +64,7 @@ const Home = () => {
               Hi,
             </Heading>
             Welcome to my digital world! I&apos;m Jhimy Michel, a Software
-            Engineer originally from Bolivia and now based in Zurich. Passionate
-            about crafting innovative digital solutions, I also have a keen
-            interest in writing and photography. Drawing from my diverse
-            experiences and cultural background, I strive to bring creativity
-            and efficiency to every project I undertake.
+            Engineer originally from Bolivia and now based in Zurich.
           </Paragraph>
           {/* <Box align="center" my={4}>
             <NextLink href="/works">
@@ -108,8 +107,8 @@ const Home = () => {
             , Zurich - Switzerland.
           </BioSection>
           <BioSection>
-            <BioYear>2023 - Present</BioYear>
-            Assistant Research,{' '}
+            <BioYear>2023 - 2024</BioYear>
+            Research Assistant,{' '}
             <Link
               href="https://www.zhaw.ch/en/engineering/institutes-centres/icp-institute-of-computational-physics/"
               target="_blank"
