@@ -108,7 +108,7 @@ const Home = () => {
               href="https://www.zhaw.ch/en/engineering/institutes-centres/icp-institute-of-computational-physics/"
               target="_blank"
             >
-              Institute of Computational Physics ZHAW
+              ZHAW
             </Link>
             , Switzerland.
           </BioSection>
