@@ -1,38 +1,68 @@
 import Link from 'next/link'
-import { Text, useColorModeValue } from '@chakra-ui/react'
-import styled from '@emotion/styled'
+import { Box, Text, useColorModeValue } from '@chakra-ui/react'
+import { motion } from 'framer-motion'
 import TulipIcon from './icons/tulip'
 
-const LogoBox = styled.span`
-  font-weight: bold;
-  font-size: 18px;
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  line-height: 20px;
-  padding: 10px;
-
-  &: hover img {
-    transform: rotate(20deg);
-  }
-`
+const MotionBox = motion(Box)
 
 const Logo = () => {
+
   return (
-    <Link href="/" scroll={false} legacyBehavior>
-      <a>
-        <LogoBox>
+    <Link href="/" scroll={false}>
+      <MotionBox
+        display="inline-flex"
+        alignItems="center"
+        py={2}
+        px={4}
+        cursor="pointer"
+        position="relative"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+      >
+        {/* <Box
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg={bgColor}
+          borderRadius="full"
+          backdropFilter="blur(8px)"
+          transition="all 0.3s ease-in-out"
+          _hover={{ bg: hoverBgColor }}
+        /> */}
+        
+        <MotionBox
+          position="relative"
+          whileHover={{ rotate: 20 }}
+          transition={{ duration: 0.2 }}
+        >
           <TulipIcon />
-          <Text
-            color={useColorModeValue('gray.800', 'whiteAlpha.900')}
-            fontFamily='M PLUS Rounded 1c", sans-serif'
-            fontWeight="bold"
-            ml={3}
-          >
-            &nbsp; Jhimy Michel
-          </Text>
-        </LogoBox>
-      </a>
+        </MotionBox>
+        <Text
+          position="relative"
+          color={useColorModeValue('brand.teal', 'brand.orange')}
+          fontFamily='"M PLUS Rounded 1c", sans-serif'
+          fontWeight="bold"
+          fontSize="18px"
+          ml={3}
+          bgGradient={useColorModeValue(
+            'linear(to-r, brand.teal, brand.rust)',
+            'linear(to-r, brand.orange, brand.rust)'
+          )}
+          bgClip="text"
+          _hover={{
+            bgGradient: useColorModeValue(
+              'linear(to-r, brand.rust, brand.teal)',
+              'linear(to-r, brand.rust, brand.orange)'
+            )
+          }}
+          transition="all 0.3s ease-in-out"
+        >
+          Jhimy Michel
+        </Text>
+      </MotionBox>
     </Link>
   )
 }

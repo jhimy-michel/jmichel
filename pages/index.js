@@ -11,12 +11,7 @@ import {
 } from '@chakra-ui/react'
 /* import NextLink from 'next/link'
 import { ChevronRightIcon } from '@chakra-ui/icons' */
-import {
-  
-  IoLogoInstagram,
-  IoLogoGithub,
-  IoLogoLinkedin
-} from 'react-icons/io5'
+import { IoLogoInstagram, IoLogoGithub, IoLogoLinkedin } from 'react-icons/io5'
 
 import Section from '../components/section'
 import Paragraph from '../components/paragraph'
@@ -34,17 +29,14 @@ const Home = () => {
           align="center"
           mb={6}
         >
-          Hello, I&apos;m a Software Engineer based in Switzerland{' '}
-          <span role="img" aria-label="Switzerland">
-            🇨🇭
-          </span>
+          Hi/ Hola/ Grüezi,
         </Box>
         <Box display={{ md: 'flex' }}>
           <Box flexGrow={1}>
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            {/* <p>Tech Aficionado / Innovative Mind / Cultural Explorer </p> */}
+            <p>Tech Aficionado / Innovative Mind / Cultural Explorer </p>
           </Box>
 
           <Box
@@ -67,11 +59,12 @@ const Home = () => {
         </Box>
         <Section delay={0.1}>
           <Paragraph>
-            <Heading as="h3" variant="section-title">
+            {/* <Heading as="h3" variant="section-title">
               Hi/ Hola/ Grüezi,
-            </Heading>
+            </Heading> */}
+            <br/>
             Welcome to my digital space! I&apos;m Jhimy Michel, a Software
-            Engineer from Bolivia, now based in Zurich.
+            Engineer from Bolivia, now based in Europe.
           </Paragraph>
           {/* <Box align="center" my={4}>
             <NextLink href="/works">
