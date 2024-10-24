@@ -52,6 +52,7 @@ const Home = () => {
               maxWidth="100px"
               display="inline-block"
               borderRadius="full"
+              placeholder="blur"
               alt="profile image"
               src="/images/jhimy.jpg"
             />

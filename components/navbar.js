@@ -1,14 +1,14 @@
 import Logo from './logo'
-//import NextLink from 'next/link'
+import NextLink from 'next/link'
 import {
   Container,
   Box,
-  //Link,
+  Link,
   Stack,
   Heading,
   Flex,
   Menu,
-  //MenuItem,
+  MenuItem,
   MenuList,
   MenuButton,
   IconButton,
@@ -19,7 +19,7 @@ import { HamburgerIcon } from '@chakra-ui/icons'
 import ThemeToggleButton from './theme-toggle-button'
 //import { IoLogoGithub } from 'react-icons/io5'
 
-/* const LinkItem = ({ href, path, children }) => {
+const LinkItem = ({ href, path, children }) => {
   const active = path === href
   const inactiveColor = useColorModeValue('gray200', 'whiteAlpha.900')
 
@@ -34,7 +34,7 @@ import ThemeToggleButton from './theme-toggle-button'
       </Link>
     </NextLink>
   )
-} */
+}
 
 const NavBar = (props) => {
   const { path } = props
@@ -71,13 +71,13 @@ const NavBar = (props) => {
           flexGrow={1}
           mt={{ base: 4, nmd: 0 }}
         >
-          {/* <LinkItem href="/works" path={path}>
-            Works
+          <LinkItem href="/notes" path={path}>
+            Dev Notes
           </LinkItem>
           <LinkItem href="/posts" path={path}>
-            Posts
-          </LinkItem> */}
-          {/* <LinkItem
+            About
+          </LinkItem> 
+          {/*  <LinkItem
             target="_blank"
             href="https://github.com/jhimy-michel/jmichel"
             path={path}
@@ -102,13 +102,13 @@ const NavBar = (props) => {
                 aria-label="Options"
               />
               <MenuList>
-                {/* <NextLink href="/" passHref>
+                <NextLink href="/about" passHref>
                   <MenuItem as={Link}>About</MenuItem>
                 </NextLink>
-                <NextLink href="/works" passHref>
-                  <MenuItem as={Link}>Works</MenuItem>
+                <NextLink href="/notes" passHref>
+                  <MenuItem as={Link}>Dev Notes</MenuItem>
                 </NextLink>
-                <NextLink href="/posts" passHref>
+                {/* <NextLink href="/posts" passHref>
                   <MenuItem as={Link}>Posts</MenuItem>
                 </NextLink> */}
 
