@@ -9,8 +9,8 @@ import {
   List,
   ListItem
 } from '@chakra-ui/react'
-/* import NextLink from 'next/link'
-import { ChevronRightIcon } from '@chakra-ui/icons' */
+// import NextLink from 'next/link'
+// import { ChevronRightIcon } from '@chakra-ui/icons'
 import { IoLogoInstagram, IoLogoGithub, IoLogoLinkedin } from 'react-icons/io5'
 
 import Section from '../components/section'
@@ -62,14 +62,14 @@ const Home = () => {
             {/* <Heading as="h3" variant="section-title">
               Hi/ Hola/ Grüezi,
             </Heading> */}
-            <br/>
+            <br />
             Welcome to my digital space! I&apos;m Jhimy Michel, a Software
-            Engineer from Bolivia, now based in Europe.
+            Engineer from Bolivia, now based in Europe (Switzerland & Spain).
           </Paragraph>
           {/* <Box align="center" my={4}>
-            <NextLink href="/works">
+            <NextLink href="/my-cv">
               <Button rightIcon={<ChevronRightIcon />} colorScheme="teal">
-                My portfolio
+                My CV
               </Button>
             </NextLink>
           </Box> */}
@@ -111,8 +111,8 @@ const Home = () => {
             I love
           </Heading>
           <Paragraph>
-            Arts, Sports, Music, Photography and Writing.{' '}
-            {/* <Link href="">Drawing</Link> */}
+            Arts, Sports, Music, <Link href="">Photography</Link> and{' '}
+            <Link href="">Writing</Link>.{' '}
           </Paragraph>
         </Section>
         <Section delay={0.3}>

@@ -41,6 +41,7 @@ const VoxelDog = () => {
       renderer.outputEncoding = THREE.sRGBEncoding
       container.appendChild(renderer.domElement)
       refRenderer.current = renderer
+
       const scene = new THREE.Scene()
 
       const target = new THREE.Vector3(-0.5, 1.2, 0)
@@ -50,8 +51,6 @@ const VoxelDog = () => {
         20 * Math.cos(0.2 * Math.PI)
       )
 
-      // 640 -> 240
-      // 8   -> 6
       const scale = scH * 0.005 + 4.8
       const camera = new THREE.OrthographicCamera(
         -scale,
@@ -64,8 +63,18 @@ const VoxelDog = () => {
       camera.position.copy(initialCameraPosition)
       camera.lookAt(target)
 
-      const ambientLight = new THREE.AmbientLight(0xcccccc, 1)
+      // Improved lighting setup
+      const ambientLight = new THREE.AmbientLight(0xcccccc, 0.4)  // Dim ambient light
       scene.add(ambientLight)
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1)  // Strong directional light
+      directionalLight.position.set(5, 10, 5)
+      directionalLight.castShadow = true  // If shadows are needed
+      scene.add(directionalLight)
+
+      const pointLight = new THREE.PointLight(0xff4400, 0.8)  // Focused warm point light
+      pointLight.position.set(-5, 5, 5)
+      scene.add(pointLight)
 
       const controls = new OrbitControls(camera, renderer.domElement)
       controls.autoRotate = true

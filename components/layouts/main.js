@@ -11,7 +11,7 @@ const Main = ({ children, router }) => {
           name="viewport"
           content="width=device-width, initial-scale=1"
         ></meta>
-        <title>Jhimy Michel - Homepage</title>
+        <title>Jhimy Michel</title>
       </Head>
       <NavBar path={router.asPath}></NavBar>
       <Container maxW={'container.md'} pt={14}>
