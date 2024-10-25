@@ -45,7 +45,7 @@ const DSNotes = () => {
           mb={6}
         >
           <Heading as="h1" variant="page-title" mb={4}>
-            DS Notes
+            Data Structure Basis
           </Heading>
 
           <Flex gap={4} alignItems="center" flexWrap="wrap">
@@ -55,7 +55,7 @@ const DSNotes = () => {
               py={1}
               borderRadius="full"
             >
-              DS
+              Data Structure
             </Badge>
           </Flex>
         </Box>
