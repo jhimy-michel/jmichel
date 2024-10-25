@@ -17,6 +17,7 @@ import Section from '../components/section'
 import Paragraph from '../components/paragraph'
 import { BioSection, BioYear } from '../components/bio'
 import Layout from '../components/layouts/article'
+// import profileImage from '../public/jhimy_michel.png'
 
 const Home = () => {
   return (
@@ -53,16 +54,14 @@ const Home = () => {
               display="inline-block"
               borderRadius="full"
               placeholder="blur"
+              blurDataURL="data:image/png;base64,..." // Replace with a valid base64-encoded image
               alt="profile image"
-              src="/images/jhimy.jpg"
+              src="jhimy_michel.png"
             />
           </Box>
         </Box>
         <Section delay={0.1}>
           <Paragraph>
-            {/* <Heading as="h3" variant="section-title">
-              Hi/ Hola/ Grüezi,
-            </Heading> */}
             <br />
             Welcome to my digital space! I&apos;m Jhimy Michel, a Software
             Engineer from Bolivia, now based in Europe (Switzerland & Spain).
@@ -112,8 +111,8 @@ const Home = () => {
             I love
           </Heading>
           <Paragraph>
-            Arts, Sports, Music, <Link href="">Photography</Link> and{' '}
-            <Link href="">Writing</Link>.{' '}
+            Arts, Sports, Music, <Link href="photography">Photography</Link> and{' '}
+            <Link href="/notes">Writing</Link>.{' '}
           </Paragraph>
         </Section>
         <Section delay={0.3}>
