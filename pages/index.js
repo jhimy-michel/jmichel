@@ -11,7 +11,7 @@ import {
 } from '@chakra-ui/react'
 // import NextLink from 'next/link'
 // import { ChevronRightIcon } from '@chakra-ui/icons'
-import { IoLogoInstagram, IoLogoGithub, IoLogoLinkedin } from 'react-icons/io5'
+import { IoLogoGithub, IoLogoLinkedin } from 'react-icons/io5'
 
 import Section from '../components/section'
 import Paragraph from '../components/paragraph'
@@ -105,6 +105,17 @@ const Home = () => {
             </Link>
             , Switzerland.
           </BioSection>
+          <BioSection>
+            <BioYear>2025</BioYear>
+            Software Engineer,{' '}
+            <Link
+              href="https://www.playnvoice.ai/"
+              target="_blank"
+            >
+              PlaynVoice
+            </Link>
+            , Switzerland.
+          </BioSection>
         </Section>
         <Section delay={0.3}>
           <Heading as="h3" variant="section-title">
@@ -142,20 +153,6 @@ const Home = () => {
                   leftIcon={<IoLogoLinkedin />}
                 >
                   @jhimy-michel
-                </Button>
-              </Link>
-            </ListItem>
-            <ListItem>
-              <Link
-                href="https://www.instagram.com/jhimymichel/"
-                target="_blank"
-              >
-                <Button
-                  variant="ghost"
-                  colorScheme="teal"
-                  leftIcon={<IoLogoInstagram />}
-                >
-                  @jhimymichel
                 </Button>
               </Link>
             </ListItem>
