@@ -2,8 +2,8 @@ const withMDX = require('@next/mdx')({
   extension: /\.mdx?$/,
   options: {
     remarkPlugins: [],
-    rehypePlugins: [],
-  },
+    rehypePlugins: []
+  }
 })
 
 module.exports = withMDX({
@@ -12,4 +12,7 @@ module.exports = withMDX({
   basePath: '',
   assetPrefix: '',
   pageExtensions: ['js', 'jsx', 'mdx'],
+  images: {
+    unoptimized: true
+  }
 })
