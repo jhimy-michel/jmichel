@@ -1,8 +1,15 @@
-// const isProd = process.env.NODE_ENV === 'production'
+const withMDX = require('@next/mdx')({
+  extension: /\.mdx?$/,
+  options: {
+    remarkPlugins: [],
+    rehypePlugins: [],
+  },
+})
 
-module.exports = {
+module.exports = withMDX({
   output: 'export',
   reactStrictMode: true,
   basePath: '',
-  assetPrefix: ''
-}
+  assetPrefix: '',
+  pageExtensions: ['js', 'jsx', 'mdx'],
+})

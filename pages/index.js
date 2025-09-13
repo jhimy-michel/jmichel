@@ -123,7 +123,7 @@ const Home = () => {
           </Heading>
           <Paragraph>
             Arts, Sports, Music, <Link href="photography">Photography</Link> and{' '}
-            <Link href="/notes">Writing</Link>.{' '}
+            <Link href="/posts">Writing</Link>.{' '}
           </Paragraph>
         </Section>
         <Section delay={0.3}>
