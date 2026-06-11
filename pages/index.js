@@ -46,10 +46,7 @@ const Home = ({ latestPosts }) => {
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            <p>
-              Software engineer in Switzerland — cloud simulation, LLMs, and
-              the web.
-            </p>
+            <p>Software engineer, cloud and AI.</p>
           </Box>
 
           <Box
