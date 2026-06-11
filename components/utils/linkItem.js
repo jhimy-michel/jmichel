@@ -15,25 +15,25 @@ const LinkItem = ({ href, path, children }) => {
     const hoverColor = useColorModeValue('brand.rust', 'brand.sand')
     
     return (
-      <NextLink href={href} passHref>
-        <Link
-          p={2}
-          position="relative"
-          transition="all 0.3s ease-in-out"
-          color={inactiveColor}
-          textDecoration={active ? 'underline' : 'none'}
-          textUnderlineOffset="6px"
-          textDecorationThickness="2px"
-          textDecorationColor={activeColor}
-          _hover={{
-            color: hoverColor,
-            textDecoration: 'underline',
-            textDecorationColor: hoverColor
-          }}
-        >
-          {children}
-        </Link>
-      </NextLink>
+      <Link
+        as={NextLink}
+        href={href}
+        p={2}
+        position="relative"
+        transition="all 0.3s ease-in-out"
+        color={inactiveColor}
+        textDecoration={active ? 'underline' : 'none'}
+        textUnderlineOffset="6px"
+        textDecorationThickness="2px"
+        textDecorationColor={activeColor}
+        _hover={{
+          color: hoverColor,
+          textDecoration: 'underline',
+          textDecorationColor: hoverColor
+        }}
+      >
+        {children}
+      </Link>
     )
   }
   

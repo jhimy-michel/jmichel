@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 import { serialize } from 'next-mdx-remote/serialize'
 import { MDXRemote } from 'next-mdx-remote'
 import fs from 'fs'
@@ -14,6 +13,9 @@ import {
 import Layout from '../../components/layouts/article'
 
 const BlogPost = ({ source, frontmatter }) => {
+  const dateColor = useColorModeValue('gray.600', 'gray.400')
+  const contentBg = useColorModeValue('white', 'brand.surface')
+
   return (
     <Layout title={frontmatter.title}>
       <Container>
@@ -22,7 +24,7 @@ const BlogPost = ({ source, frontmatter }) => {
             {frontmatter.title}
           </Heading>
           {frontmatter.date && (
-            <Text color={useColorModeValue('gray.600', 'gray.400')} mb={4}>
+            <Text color={dateColor} mb={4}>
               {new Date(frontmatter.date).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -32,11 +34,7 @@ const BlogPost = ({ source, frontmatter }) => {
           )}
         </Box>
         
-        <Box
-          bg={useColorModeValue('whiteAlpha.500', 'whiteAlpha.200')}
-          p={6}
-          borderRadius="lg"
-        >
+        <Box bg={contentBg} p={6} borderRadius="lg">
           <MDXRemote {...source} />
         </Box>
       </Container>

@@ -8,13 +8,19 @@ const colors = {
     sand: '#F2E5BF',     // Secondary - Warm sand
     orange: '#FD8B51',   // Accent - Bright orange
     rust: '#CB6040',     // Accent - Terracotta
+    cream: '#FAF6EA',          // Light mode background - pale cream
+    tealDeep: '#1D5A66',       // Light mode headings - deep teal
+    night: '#15262A',          // Dark mode background - very dark teal
+    surface: '#1E343A',        // Dark mode cards/boxes
+    surfaceHover: '#26424A'    // Dark mode card hover
   }
 }
 
 const styles = {
   global: (props) => ({
     body: {
-      bg: mode(colors.brand.sand, '#202023')(props),
+      bg: mode(colors.brand.cream, colors.brand.night)(props),
+      color: mode('#3D3D38', '#D9DCD6')(props),
       transition: 'background-color 0.2s ease-in-out'
     }
   })
@@ -22,6 +28,9 @@ const styles = {
 
 const components = {
   Heading: {
+    baseStyle: (props) => ({
+      color: mode(colors.brand.tealDeep, colors.brand.sand)(props)
+    }),
     variants: {
       'section-title': (props) => ({
         textDecoration: 'underline',

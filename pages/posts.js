@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 import {
   Container,
   Heading,
@@ -16,11 +15,13 @@ import Section from '../components/section'
 import Layout from '../components/layouts/article'
 
 const Posts = ({ blogPosts }) => {
-  const cardBg = useColorModeValue('whiteAlpha.500', 'whiteAlpha.200')
-  const hoverBg = useColorModeValue('whiteAlpha.700', 'whiteAlpha.300')
+  const cardBg = useColorModeValue('white', 'brand.surface')
+  const hoverBg = useColorModeValue('#FFFDF5', 'brand.surfaceHover')
+  const dateColor = useColorModeValue('gray.600', 'gray.400')
+  const descriptionColor = useColorModeValue('gray.700', 'gray.300')
 
   return (
-    <Layout>
+    <Layout title="Posts">
       <Container maxW="container.md">
         <Heading
           as="h3"
@@ -39,12 +40,17 @@ const Posts = ({ blogPosts }) => {
         <SimpleGrid columns={[1, 1, 1]} gap={6}>
           {blogPosts.map((post, index) => (
             <Section key={post.slug} delay={index * 0.1}>
-              <NextLink href={`/posts/${post.slug}`} passHref>
-                <Link textDecoration="none" _hover={{ textDecoration: 'none' }}>
+              <Link
+                as={NextLink}
+                href={`/posts/${post.slug}`}
+                textDecoration="none"
+                _hover={{ textDecoration: 'none' }}
+              >
                   <Box
                     p={6}
                     bg={cardBg}
                     borderRadius="lg"
+                    boxShadow="sm"
                     transition="all 0.3s ease"
                     _hover={{
                       bg: hoverBg,
@@ -56,11 +62,7 @@ const Posts = ({ blogPosts }) => {
                       {post.title}
                     </Heading>
                     {post.date && (
-                      <Text
-                        fontSize="sm"
-                        color={useColorModeValue('gray.600', 'gray.400')}
-                        mb={2}
-                      >
+                      <Text fontSize="sm" color={dateColor} mb={2}>
                         {new Date(post.date).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
@@ -69,20 +71,17 @@ const Posts = ({ blogPosts }) => {
                       </Text>
                     )}
                     {post.description && (
-                      <Text color={useColorModeValue('gray.700', 'gray.300')}>
-                        {post.description}
-                      </Text>
+                      <Text color={descriptionColor}>{post.description}</Text>
                     )}
                   </Box>
-                </Link>
-              </NextLink>
+              </Link>
             </Section>
           ))}
         </SimpleGrid>
 
         {blogPosts.length === 0 && (
           <Box textAlign="center" py={10}>
-            <Text color={useColorModeValue('gray.600', 'gray.400')}>
+            <Text color={dateColor}>
               No posts yet. Create your first post by adding an MDX file to{' '}
               <code>content/posts/</code>
             </Text>

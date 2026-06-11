@@ -11,7 +11,7 @@ export default class Document extends NexDocument {
           <link rel="icon" type="image/png" href="/tulip.png" />
         </Head>
         <body>
-          <ColorModeScript initialColorMode={theme.config} />
+          <ColorModeScript initialColorMode={theme.config.initialColorMode} />
           <Main />
           <NextScript />
         </body>

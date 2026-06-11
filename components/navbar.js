@@ -3,7 +3,6 @@ import NextLink from 'next/link'
 import {
   Container,
   Box,
-  Link,
   Stack,
   Heading,
   Flex,
@@ -26,7 +25,7 @@ const NavBar = (props) => {
       position="fixed"
       as="nav"
       w="100%"
-      bg={useColorModeValue('#ffffff40', '#20202380')}
+      bg={useColorModeValue('#ffffff40', '#15262A80')}
       style={{ backdropFilter: 'blur(10px)' }}
       zIndex={1}
       {...props}
@@ -55,9 +54,6 @@ const NavBar = (props) => {
           <LinkItem href="/posts" path={path}>
             Posts
           </LinkItem>
-          <LinkItem href="/photography" path={path}>
-            Photography
-          </LinkItem>
         </Stack>
 
         <Box flex={1} align="right">
@@ -71,12 +67,9 @@ const NavBar = (props) => {
                 aria-label="Options"
               />
               <MenuList>
-                <NextLink href="/posts" passHref>
-                  <MenuItem as={Link}>Posts</MenuItem>
-                </NextLink>
-                <NextLink href="/photography" passHref>
-                  <MenuItem as={Link}>Photography</MenuItem>
-                </NextLink>
+                <MenuItem as={NextLink} href="/posts">
+                  Posts
+                </MenuItem>
               </MenuList>
             </Menu>
           </Box>
