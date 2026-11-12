@@ -6,7 +6,6 @@ import TulipIcon from './icons/tulip'
 const MotionBox = motion(Box)
 
 const Logo = () => {
-
   return (
     <Link href="/" scroll={false}>
       <MotionBox
@@ -32,7 +31,7 @@ const Logo = () => {
           transition="all 0.3s ease-in-out"
           _hover={{ bg: hoverBgColor }}
         /> */}
-        
+
         <MotionBox
           position="relative"
           whileHover={{ rotate: 20 }}
@@ -48,13 +47,13 @@ const Logo = () => {
           fontSize="18px"
           ml={3}
           bgGradient={useColorModeValue(
-            'linear(to-r, brand.teal, brand.rust)',
+            'linear(to-r, brand.tealDeep, brand.teal)',
             'linear(to-r, brand.orange, brand.rust)'
           )}
           bgClip="text"
           _hover={{
             bgGradient: useColorModeValue(
-              'linear(to-r, brand.rust, brand.teal)',
+              'linear(to-r, brand.teal, brand.rust)',
               'linear(to-r, brand.rust, brand.orange)'
             )
           }}

@@ -2,12 +2,12 @@ import { useColorModeValue } from '@chakra-ui/react'
 
 /**
  * Tulip icon in the site's brand palette.
- * Petals: orange/rust. Stem & leaves: teal (lighter in dark mode).
+ * Petals: orange/rust. Stem & leaves: ink blue (lighter in dark mode).
  * @param {*} props
  * @returns
  */
 const TulipIcon = (props) => {
-  const stemColor = useColorModeValue('#257180', '#4FB0C0')
+  const stemColor = useColorModeValue('#2F4A7A', '#8FA7D6')
 
   return (
     <svg

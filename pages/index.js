@@ -1,6 +1,7 @@
 import {
   Container,
   Box,
+  Flex,
   Heading,
   Image,
   Text,
@@ -17,6 +18,7 @@ import matter from 'gray-matter'
 import { IoLogoGithub, IoLogoLinkedin } from 'react-icons/io5'
 
 import Section from '../components/section'
+import CalendarBadge from '../components/calendar-badge'
 import Paragraph from '../components/paragraph'
 import { BioSection, BioYear } from '../components/bio'
 import Layout from '../components/layouts/article'
@@ -26,21 +28,29 @@ const Home = ({ latestPosts }) => {
   const cardBg = useColorModeValue('white', 'brand.surface')
   const cardHoverBg = useColorModeValue('#FFFDF5', 'brand.surfaceHover')
   const dateColor = useColorModeValue('gray.600', 'gray.400')
+  const socialColor = useColorModeValue('brand.teal', 'brand.orange')
+  const socialHoverBg = useColorModeValue('blackAlpha.50', 'whiteAlpha.100')
 
   return (
     <Layout>
       <Container>
-        <Box
-          borderRadius="lg"
-          bg={greetingBg}
-          p={3}
-          align="center"
-          mb={6}
-          fontWeight="medium"
-          boxShadow="sm"
-        >
-          Hi · Hola · Grüezi 👋
-        </Box>
+        <Flex gap={3} mb={6} align="stretch">
+          <Box
+            borderRadius="lg"
+            bg={greetingBg}
+            p={3}
+            align="center"
+            fontWeight="medium"
+            boxShadow="sm"
+            flexGrow={1}
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            Hi · Hola · Grüezi 👋
+          </Box>
+          <CalendarBadge />
+        </Flex>
         <Box display={{ md: 'flex' }}>
           <Box flexGrow={1}>
             <Heading as="h2" variant="page-title">
@@ -108,10 +118,7 @@ const Home = ({ latestPosts }) => {
           <BioSection>
             <BioYear>2025</BioYear>
             Software Engineer,{' '}
-            <Link
-              href="https://www.playnvoice.ai/"
-              target="_blank"
-            >
+            <Link href="https://www.playnvoice.ai/" target="_blank">
               PlaynVoice
             </Link>
             , Switzerland.
@@ -131,7 +138,7 @@ const Home = ({ latestPosts }) => {
             <Heading as="h3" variant="section-title">
               Latest posts
             </Heading>
-            {latestPosts.map(post => (
+            {latestPosts.map((post) => (
               <Link
                 key={post.slug}
                 as={NextLink}
@@ -178,7 +185,8 @@ const Home = ({ latestPosts }) => {
               <Link href="https://github.com/jhimy-michel" target="_blank">
                 <Button
                   variant="ghost"
-                  colorScheme="teal"
+                  color={socialColor}
+                  _hover={{ bg: socialHoverBg }}
                   leftIcon={<IoLogoGithub />}
                 >
                   @jhimy-michel
@@ -192,7 +200,8 @@ const Home = ({ latestPosts }) => {
               >
                 <Button
                   variant="ghost"
-                  colorScheme="teal"
+                  color={socialColor}
+                  _hover={{ bg: socialHoverBg }}
                   leftIcon={<IoLogoLinkedin />}
                 >
                   @jhimy-michel
@@ -213,8 +222,8 @@ export const getStaticProps = async () => {
   if (fs.existsSync(postsDirectory)) {
     latestPosts = fs
       .readdirSync(postsDirectory)
-      .filter(name => name.endsWith('.mdx'))
-      .map(filename => {
+      .filter((name) => name.endsWith('.mdx'))
+      .map((filename) => {
         const fileContents = fs.readFileSync(
           path.join(postsDirectory, filename),
           'utf8'
