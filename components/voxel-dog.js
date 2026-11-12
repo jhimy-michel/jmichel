@@ -41,8 +41,8 @@ function currentHour() {
   return now.getHours() + now.getMinutes() / 60
 }
 
-// Perrito naps between 23:00 and 06:00 local time
-const isSleepTime = (hour) => hour >= 23 || hour < 6
+// Perrito sleeps between 22:00 and 07:00 local time
+const isSleepTime = (hour) => hour >= 22 || hour < 7
 
 // Light mode follows the real clock: keyframes by hour, interpolated
 const NIGHT = {

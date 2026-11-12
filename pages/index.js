@@ -56,7 +56,7 @@ const Home = ({ latestPosts }) => {
             <Heading as="h2" variant="page-title">
               Jhimy Michel
             </Heading>
-            <p>Software engineer, cloud and AI.</p>
+            <p>Software engineer, Cloud and AI.</p>
           </Box>
 
           <Box
