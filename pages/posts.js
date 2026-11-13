@@ -1,128 +1,141 @@
-import {
-  Container,
-  Heading,
-  SimpleGrid,
-  Text,
-  useColorModeValue,
-  Box,
-  Link
-} from '@chakra-ui/react'
 import NextLink from 'next/link'
-import fs from 'fs'
-import path from 'path'
-import matter from 'gray-matter'
-import Section from '../components/section'
-import Layout from '../components/layouts/article'
+import Head from 'next/head'
+import {
+  Box,
+  Flex,
+  Heading,
+  Link,
+  Text,
+  Wrap,
+  WrapItem,
+  useColorModeValue
+} from '@chakra-ui/react'
+import { getAllPosts } from '../libs/posts'
+import { TOPICS, topicById } from '../libs/topics'
+import { useHash } from '../libs/use-hash'
 
-const Posts = ({ blogPosts }) => {
-  const cardBg = useColorModeValue('white', 'brand.surface')
+const formatDate = (date) =>
+  new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+
+// Perrito's bookshelf: one book per topic. /posts lists everything,
+// /posts#tech only the Tech book (also what clicking that book opens)
+const Posts = ({ posts }) => {
+  const hash = useHash()
+  const topic = topicById(hash.slice(1))
+  const shown = topic ? posts.filter((p) => p.topic === topic.id) : posts
+
+  const cardBg = useColorModeValue('white', 'brand.night')
   const hoverBg = useColorModeValue('#FFFDF5', 'brand.surfaceHover')
-  const dateColor = useColorModeValue('gray.600', 'gray.400')
-  const descriptionColor = useColorModeValue('gray.700', 'gray.300')
+  const mutedColor = useColorModeValue('gray.600', 'gray.400')
+  const textColor = useColorModeValue('#2A2F3A', '#D8DCE6')
+  const chipBg = useColorModeValue('blackAlpha.100', 'whiteAlpha.100')
+  const chipActiveColor = useColorModeValue('white', 'brand.night')
+
+  const chip = (href, label, active, color) => (
+    <Link
+      as={NextLink}
+      href={href}
+      scroll={false}
+      px={3}
+      py={1}
+      borderRadius="full"
+      fontSize="sm"
+      fontWeight="semibold"
+      bg={active ? color || 'brand.orange' : chipBg}
+      color={active ? chipActiveColor : undefined}
+      _hover={{ textDecoration: 'none', opacity: 0.85 }}
+    >
+      {label}
+    </Link>
+  )
 
   return (
-    <Layout title="Posts">
-      <Container maxW="container.md">
-        <Heading
-          as="h3"
-          variant="page-title"
-          mb={6}
-          display="flex"
-          alignItems="center"
-          gap={2}
-        >
-          Posts
-        </Heading>
-        <Text mb={6}>
-          My thoughts, experiences, and learnings from tech, travel, and life.
+    <>
+      <Head>
+        <title>Posts - Jhimy Michel</title>
+        <meta
+          property="og:title"
+          content="Posts - Jhimy Michel"
+          key="og:title"
+        />
+      </Head>
+      <Heading as="h2" size="lg" mb={2} pr={12}>
+        {topic ? `${topic.emoji} ${topic.label}` : 'Bookshelf'}
+      </Heading>
+      <Text mb={5} color={mutedColor}>
+        {topic
+          ? `Posts about ${topic.label.toLowerCase()}.`
+          : 'Thoughts and learnings from tech, travel and life. Each book on the shelf is a topic.'}
+      </Text>
+
+      <Wrap spacing={2} mb={6}>
+        <WrapItem>{chip('/posts', 'All', !topic)}</WrapItem>
+        {TOPICS.map((t) => (
+          <WrapItem key={t.id}>
+            {chip(
+              `/posts#${t.id}`,
+              `${t.emoji} ${t.label}`,
+              topic?.id === t.id,
+              t.color
+            )}
+          </WrapItem>
+        ))}
+      </Wrap>
+
+      {shown.map((post) => {
+        const postTopic = topicById(post.topic)
+        return (
+          <Link
+            key={post.slug}
+            as={NextLink}
+            href={`/posts/${post.slug}`}
+            display="block"
+            mb={4}
+            _hover={{ textDecoration: 'none' }}
+          >
+            <Box
+              p={5}
+              bg={cardBg}
+              borderRadius="lg"
+              borderLeftWidth="4px"
+              borderLeftColor={postTopic?.color || 'transparent'}
+              boxShadow="sm"
+              transition="all 0.2s ease"
+              _hover={{ bg: hoverBg, transform: 'translateY(-2px)' }}
+            >
+              <Heading as="h3" size="sm" mb={1}>
+                {post.title}
+              </Heading>
+              <Flex gap={2} fontSize="sm" color={mutedColor} mb={2}>
+                {post.date && <Text>{formatDate(post.date)}</Text>}
+                {postTopic && <Text>· {postTopic.label}</Text>}
+              </Flex>
+              {post.description && (
+                <Text fontSize="sm" color={textColor}>
+                  {post.description}
+                </Text>
+              )}
+            </Box>
+          </Link>
+        )
+      })}
+
+      {shown.length === 0 && (
+        <Text color={mutedColor} py={6} textAlign="center">
+          No {topic ? topic.label.toLowerCase() : ''} posts yet. This book is
+          still being written ✍️
         </Text>
-
-        <SimpleGrid columns={[1, 1, 1]} gap={6}>
-          {blogPosts.map((post, index) => (
-            <Section key={post.slug} delay={index * 0.1}>
-              <Link
-                as={NextLink}
-                href={`/posts/${post.slug}`}
-                textDecoration="none"
-                _hover={{ textDecoration: 'none' }}
-              >
-                  <Box
-                    p={6}
-                    bg={cardBg}
-                    borderRadius="lg"
-                    boxShadow="sm"
-                    transition="all 0.3s ease"
-                    _hover={{
-                      bg: hoverBg,
-                      transform: 'translateY(-2px)',
-                      shadow: 'lg'
-                    }}
-                  >
-                    <Heading as="h4" size="md" mb={2}>
-                      {post.title}
-                    </Heading>
-                    {post.date && (
-                      <Text fontSize="sm" color={dateColor} mb={2}>
-                        {new Date(post.date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
-                      </Text>
-                    )}
-                    {post.description && (
-                      <Text color={descriptionColor}>{post.description}</Text>
-                    )}
-                  </Box>
-              </Link>
-            </Section>
-          ))}
-        </SimpleGrid>
-
-        {blogPosts.length === 0 && (
-          <Box textAlign="center" py={10}>
-            <Text color={dateColor}>
-              No posts yet. Create your first post by adding an MDX file to{' '}
-              <code>content/posts/</code>
-            </Text>
-          </Box>
-        )}
-      </Container>
-    </Layout>
+      )}
+    </>
   )
 }
 
-export const getStaticProps = async () => {
-  const postsDirectory = path.join(process.cwd(), 'content/posts')
-  
-  let blogPosts = []
-  if (fs.existsSync(postsDirectory)) {
-    const filenames = fs.readdirSync(postsDirectory)
-    blogPosts = filenames
-      .filter(name => name.endsWith('.mdx'))
-      .map(filename => {
-        const filePath = path.join(postsDirectory, filename)
-        const fileContents = fs.readFileSync(filePath, 'utf8')
-        const { data } = matter(fileContents)
-        
-        return {
-          slug: filename.replace(/\.mdx$/, ''),
-          title: data.title || filename.replace(/\.mdx$/, ''),
-          date: data.date || null,
-          description: data.description || null,
-          ...data
-        }
-      })
-      .sort((a, b) => {
-        if (!a.date) return 1
-        if (!b.date) return -1
-        return new Date(b.date) - new Date(a.date)
-      })
-  }
-
-  return {
-    props: { blogPosts }
-  }
-}
+export const getStaticProps = async () => ({
+  props: { posts: getAllPosts() }
+})
 
 export default Posts

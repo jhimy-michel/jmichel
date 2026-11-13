@@ -14,7 +14,7 @@ Findings from a code review on 2026-06-11. Grouped by priority. Check items off 
 > Resolved by archiving, not deleting: unreachable pages moved to `archive/pages/` so they're kept in the repo but excluded from the build. To restore one, move it back into `pages/` and add a nav link.
 
 - [x] **`/about` page is orphaned** — Real, written content but no link anywhere on the site. Moved to `archive/pages/about.js`; restore + add to navbar when wanted.
-- [x] **Notes pages are orphaned** — `/notes/ds-notes`, `/notes/go-htmx`, `/notes/host-llms` had content but nothing linked to them. Moved to `archive/pages/notes/` (their data files remain in `libs/content/`).
+- [x] **Notes pages are orphaned** — `/notes/ds-notes`, `/notes/go-htmx`, `/notes/host-llms` had content but nothing linked to them. Moved to `archive/pages/notes/`; later (2026-11) converted to MDX posts in `content/posts/` and the archived copies removed. "Host LLMs" was never written (it showed the DS notes).
 - [x] **`works.js` is template leftover** — Fake "Inkdrop" demo entries linking to a nonexistent `/works/inkdrop` page. Moved to `archive/pages/works.js`; replace with real projects if a works page is ever wanted.
 
 ## 🚀 Performance / cleanup

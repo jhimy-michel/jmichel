@@ -4,14 +4,12 @@ import {
   Container,
   Box,
   Stack,
-  Heading,
   Flex,
   Menu,
   MenuItem,
   MenuList,
   MenuButton,
-  IconButton,
-  useColorModeValue
+  IconButton
 } from '@chakra-ui/react'
 import { HamburgerIcon } from '@chakra-ui/icons'
 import ThemeToggleButton from './theme-toggle-button'
@@ -19,17 +17,11 @@ import LinkItem from './utils/linkItem'
 
 const NavBar = (props) => {
   const { path } = props
+  const isHome = path.split('#')[0] === '/'
 
+  // Floats over the room: no background strip
   return (
-    <Box
-      position="fixed"
-      as="nav"
-      w="100%"
-      bg={useColorModeValue('#ffffff40', '#11161F80')}
-      style={{ backdropFilter: 'blur(10px)' }}
-      zIndex={1}
-      {...props}
-    >
+    <Box position="fixed" as="nav" w="100%" zIndex={1}>
       <Container
         display="flex"
         p={2}
@@ -39,9 +31,7 @@ const NavBar = (props) => {
         justify="space-between"
       >
         <Flex align="center" mr={5}>
-          <Heading as="h1" size="lg" letterSpacing={'tighter'}>
-            <Logo />
-          </Heading>
+          <Logo showName={!isHome} />
         </Flex>
         <Stack
           direction={{ base: 'column', md: 'row' }}
@@ -51,6 +41,9 @@ const NavBar = (props) => {
           flexGrow={1}
           mt={{ base: 4, nmd: 0 }}
         >
+          <LinkItem href="/#about" path={path}>
+            About
+          </LinkItem>
           <LinkItem href="/posts" path={path}>
             Posts
           </LinkItem>
@@ -67,6 +60,9 @@ const NavBar = (props) => {
                 aria-label="Options"
               />
               <MenuList>
+                <MenuItem as={NextLink} href="/#about" scroll={false}>
+                  About
+                </MenuItem>
                 <MenuItem as={NextLink} href="/posts">
                   Posts
                 </MenuItem>

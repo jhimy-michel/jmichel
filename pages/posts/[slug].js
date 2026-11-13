@@ -1,82 +1,70 @@
 import { serialize } from 'next-mdx-remote/serialize'
 import { MDXRemote } from 'next-mdx-remote'
-import fs from 'fs'
-import path from 'path'
-import matter from 'gray-matter'
-import {
-  Container,
-  Heading,
-  Text,
-  Box,
-  useColorModeValue
-} from '@chakra-ui/react'
-import Layout from '../../components/layouts/article'
+import remarkGfm from 'remark-gfm'
+import NextLink from 'next/link'
+import Head from 'next/head'
+import { Box, Heading, Link, Text, useColorModeValue } from '@chakra-ui/react'
+import { ChevronLeftIcon } from '@chakra-ui/icons'
+import { getPost, getPostSlugs } from '../../libs/posts'
+import { topicById } from '../../libs/topics'
+import mdxComponents from '../../components/mdx-components'
 
-const BlogPost = ({ source, frontmatter }) => {
-  const dateColor = useColorModeValue('gray.600', 'gray.400')
-  const contentBg = useColorModeValue('white', 'brand.surface')
+// One post, read in the panel next to the bookshelf
+const BlogPost = ({ source, meta }) => {
+  const mutedColor = useColorModeValue('gray.600', 'gray.400')
+  const topic = topicById(meta.topic)
+  const title = `${meta.title} - Jhimy Michel`
 
   return (
-    <Layout title={frontmatter.title}>
-      <Container>
-        <Box mb={6}>
-          <Heading as="h1" size="xl" mb={4}>
-            {frontmatter.title}
-          </Heading>
-          {frontmatter.date && (
-            <Text color={dateColor} mb={4}>
-              {new Date(frontmatter.date).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </Text>
-          )}
-        </Box>
-        
-        <Box bg={contentBg} p={6} borderRadius="lg">
-          <MDXRemote {...source} />
-        </Box>
-      </Container>
-    </Layout>
+    <>
+      <Head>
+        <title>{title}</title>
+        <meta property="og:title" content={title} key="og:title" />
+        <meta name="twitter:title" content={title} key="twitter:title" />
+      </Head>
+      <Link
+        as={NextLink}
+        href={topic ? `/posts#${topic.id}` : '/posts'}
+        scroll={false}
+        fontSize="sm"
+        display="inline-flex"
+        alignItems="center"
+        mb={4}
+      >
+        <ChevronLeftIcon />
+        {topic ? `${topic.emoji} ${topic.label}` : 'All posts'}
+      </Link>
+      <Heading as="h1" size="xl" mb={2} pr={12}>
+        {meta.title}
+      </Heading>
+      {meta.date && (
+        <Text color={mutedColor} mb={6}>
+          {new Date(meta.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </Text>
+      )}
+      <Box>
+        <MDXRemote {...source} components={mdxComponents} />
+      </Box>
+    </>
   )
 }
 
-export const getStaticPaths = async () => {
-  const postsDirectory = path.join(process.cwd(), 'content/posts')
-  
-  if (!fs.existsSync(postsDirectory)) {
-    return { paths: [], fallback: false }
-  }
-
-  const filenames = fs.readdirSync(postsDirectory)
-  const paths = filenames
-    .filter(name => name.endsWith('.mdx'))
-    .map(name => ({
-      params: { slug: name.replace(/\.mdx$/, '') }
-    }))
-
-  return { paths, fallback: false }
-}
+export const getStaticPaths = async () => ({
+  paths: getPostSlugs().map((slug) => ({ params: { slug } })),
+  fallback: false
+})
 
 export const getStaticProps = async ({ params }) => {
-  const { slug } = params
-  const filePath = path.join(process.cwd(), 'content/posts', `${slug}.mdx`)
-  
-  if (!fs.existsSync(filePath)) {
-    return { notFound: true }
-  }
-
-  const source = fs.readFileSync(filePath, 'utf8')
-  const { content, data } = matter(source)
-  const mdxSource = await serialize(content)
-
-  return {
-    props: {
-      source: mdxSource,
-      frontmatter: data
-    }
-  }
+  const post = getPost(params.slug)
+  if (!post) return { notFound: true }
+  const source = await serialize(post.content, {
+    mdxOptions: { remarkPlugins: [remarkGfm] }
+  })
+  return { props: { source, meta: post.meta } }
 }
 
 export default BlogPost

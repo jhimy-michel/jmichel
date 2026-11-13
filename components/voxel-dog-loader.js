@@ -13,17 +13,9 @@ export const DogSpinner = () => (
   />
 )
 
+// Fills its parent: the full-screen room behind every page
 export const DogContainer = forwardRef(({ children }, ref) => (
-  <Box
-    ref={ref}
-    className="voxel-dog"
-    m="auto"
-    mt={['-20px', '-40px', '-80px']}
-    mb={['-10px', '-55px', '-90px']}
-    w={[240, 380, 480]}
-    h={[240, 380, 480]}
-    position="relative"
-  >
+  <Box ref={ref} className="voxel-dog" w="100%" h="100%" position="relative">
     {children}
   </Box>
 ))

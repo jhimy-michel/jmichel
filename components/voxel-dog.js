@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { useColorMode } from '@chakra-ui/react'
+import Router from 'next/router'
+import { Box, useColorMode, useColorModeValue } from '@chakra-ui/react'
 import { DogSpinner, DogContainer } from './voxel-dog-loader'
 import { loadGLTFModel } from '../libs/model'
+import { createHotspots } from './room-hotspots'
+import { SHEET_BELOW, SHEET_HEIGHT } from './panel'
+import { TOPICS } from '../libs/topics'
+
+const GITHUB_URL = 'https://github.com/jhimy-michel'
+const GLIDE_MS = 900
+const NAVBAR_HEIGHT = 64
+const SHADOW_EVERY = 3 // redraw shadows every Nth frame
 
 function easeOutCirc(x) {
   return Math.sqrt(1 - Math.pow(x - 1, 4))
@@ -410,7 +419,9 @@ function buildPlant(unit) {
 }
 
 // Wall shelf with books and a tiny succulent. Built facing +z with its
-// back at z = 0; origin at the shelf board's centre
+// back at z = 0; origin at the shelf board's centre. The first books are
+// the post topics (returned by id so they can be clicked and pulled out),
+// the rest are decoration
 function buildShelf(unit) {
   const group = new THREE.Group()
   const u = unit
@@ -437,16 +448,24 @@ function buildShelf(unit) {
     -u * 0.04,
     u * 0.02
   )
-  const books = [
-    [0.032, 0.13, 0x1d5a66],
-    [0.026, 0.11, 0xcb6040],
-    [0.036, 0.14, 0xe9dcc3],
-    [0.022, 0.1, 0xfd8b51],
-    [0.03, 0.125, 0x3a8c5c]
+  const topicSizes = [
+    [0.034, 0.14],
+    [0.03, 0.125],
+    [0.032, 0.132]
   ]
+  const books = [
+    ...TOPICS.map((topic, i) => [
+      ...topicSizes[i % topicSizes.length],
+      new THREE.Color(topic.color).getHex(),
+      topic.id
+    ]),
+    [0.026, 0.11, 0xe9dcc3],
+    [0.022, 0.1, 0xfd8b51]
+  ]
+  const topicBooks = {}
   let x = -width * 0.42
-  for (const [w, h, color] of books) {
-    addBox(
+  for (const [w, h, color, topicId] of books) {
+    const book = addBox(
       group,
       u * w,
       u * h,
@@ -456,6 +475,7 @@ function buildShelf(unit) {
       u * (0.011 + h / 2),
       depth / 2
     )
+    if (topicId) topicBooks[topicId] = { mesh: book, restZ: book.position.z }
     x += u * w + u * 0.004
   }
   // A leaning book and a small potted succulent on the right
@@ -490,7 +510,7 @@ function buildShelf(unit) {
     u * 0.08,
     depth / 2
   )
-  return group
+  return { group, topicBooks, pullOut: depth * 0.55 }
 }
 
 // Coffee break poses, found in Blender (archive/assets/perrito.blend) and
@@ -839,13 +859,24 @@ function buildLamp() {
   return { group, shadeMaterial }
 }
 
-const VoxelDog = () => {
+// focus: 'room' or 'shelf'. panelWidth: px covered by the page panel
+// (0 when closed). activeTopic: the topic book pulled out of the shelf
+const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
   const refContainer = useRef()
   const [loading, setLoading] = useState(true)
   const refRenderer = useRef()
   const refLights = useRef(null)
   const refLightTarget = useRef(LIGHTS.dark)
+  const refLabel = useRef()
+  // Re-fits the camera to the canvas shape; set once the scene is built
+  const refFit = useRef(null)
+  const refUpdateView = useRef(null)
+  const refFocus = useRef(focus)
+  const refPanelWidth = useRef(panelWidth)
+  const refTopic = useRef(activeTopic)
   const { colorMode } = useColorMode()
+  const labelBg = useColorModeValue('brand.tealDeep', 'brand.sand')
+  const labelColor = useColorModeValue('brand.cream', 'brand.night')
   const urlDogGLB = '/perrito.glb'
 
   // Re-evaluate lighting on theme change and every minute for the clock
@@ -864,14 +895,12 @@ const VoxelDog = () => {
     return () => clearInterval(id)
   }, [colorMode])
 
-  const handleWindowResize = useCallback(() => {
+  const handleResize = useCallback(() => {
     const { current: renderer } = refRenderer
     const { current: container } = refContainer
     if (container && renderer) {
-      const scW = container.clientWidth
-      const scH = container.clientHeight
-
-      renderer.setSize(scW, scH)
+      renderer.setSize(container.clientWidth, container.clientHeight)
+      if (refFit.current) refFit.current()
     }
   }, [])
 
@@ -885,12 +914,23 @@ const VoxelDog = () => {
         antialias: true,
         alpha: true
       })
-      renderer.setPixelRatio(window.devicePixelRatio)
+      // Phones: small or touch-only screens get a lighter scene
+      const isPhone =
+        Math.min(window.innerWidth, window.innerHeight) < 600 ||
+        window.matchMedia('(pointer: coarse)').matches
+      // Full-screen canvas: past 2x (1.5x on phones) extra pixels cost a
+      // lot of GPU time and look no different
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, isPhone ? 1.5 : 2)
+      )
       renderer.setSize(scW, scH)
       renderer.outputEncoding = THREE.sRGBEncoding
       // Soft shadows from the sun/moon and the reading lamp
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      // Shadows only change when Perrito moves: redraw them every few
+      // frames instead of every frame (see animate)
+      renderer.shadowMap.autoUpdate = false
       container.appendChild(renderer.domElement)
       refRenderer.current = renderer
 
@@ -900,9 +940,10 @@ const VoxelDog = () => {
       const initialCameraPosition = new THREE.Vector3(0, 10, 20)
 
       const scale = scH * 0.005 + 4.8
+      const aspect = scW / scH
       const camera = new THREE.OrthographicCamera(
-        -scale,
-        scale,
+        -scale * aspect,
+        scale * aspect,
         scale,
         -scale,
         // Tight near/far keeps depth precision high (no flickering faces)
@@ -939,7 +980,9 @@ const VoxelDog = () => {
         initial.lamp.intensity
       )
       lampLight.position.set(0, 4, 2)
-      lampLight.castShadow = true
+      // A shadow-casting point light renders the scene 6 more times
+      // (one per cube face); too much for phones
+      lampLight.castShadow = !isPhone
       lampLight.shadow.mapSize.set(512, 512)
       lampLight.shadow.bias = -0.002
       lampLight.shadow.normalBias = 0.03
@@ -971,6 +1014,8 @@ const VoxelDog = () => {
       let armL = null
       let mugPart = null
       let eyelids = null
+      // Topic books on the shelf: { mesh, restZ, pullOut, id }
+      const books = []
       const armRRest = new THREE.Vector3()
       const mugRestPos = new THREE.Vector3()
       const mugRestQuat = new THREE.Quaternion()
@@ -990,6 +1035,11 @@ const VoxelDog = () => {
 
       const controls = new OrbitControls(camera, renderer.domElement)
       controls.target = target
+      // The page must still scroll over the room: no wheel zoom, and
+      // vertical swipes scroll on touch screens (horizontal ones rotate)
+      controls.enableZoom = false
+      controls.enablePan = false
+      renderer.domElement.style.touchAction = 'pan-y'
 
       // Camera sways gently around a hero angle facing Perrito instead of
       // spinning 360 (which hid his face half the time). Dragging still
@@ -1012,6 +1062,172 @@ const VoxelDog = () => {
         dragging = false
         releasedAt = performance.now()
       })
+
+      // Clicking an object just navigates; the page decides the framing
+      const hotspots = createHotspots({
+        scene,
+        camera,
+        dom: renderer.domElement,
+        onHover: (spot, x, y) => {
+          const label = refLabel.current
+          if (!label) return
+          label.style.display = spot ? 'block' : 'none'
+          if (!spot) return
+          label.textContent = spot.label
+          label.style.left = `${x}px`
+          label.style.top = `${y - 36}px`
+        },
+        onPick: (spot) => {
+          if (spot.external) {
+            window.open(spot.href, '_blank', 'noopener')
+            return
+          }
+          Router.push(spot.href, undefined, { scroll: false })
+        }
+      })
+
+      // Framing. A view is a target + zoom that fits a set of points (the
+      // whole room, or the bookshelf) as seen from the hero angle, into the
+      // part of the canvas the page panel and navbar leave free. The view
+      // follows the page and the canvas size; the camera glides between views
+      const heroCamera = camera.clone()
+      heroCamera.position.copy(initialCameraPosition)
+      heroCamera.lookAt(0, 0, 0)
+      heroCamera.updateMatrixWorld()
+      const heroRight = new THREE.Vector3().setFromMatrixColumn(
+        heroCamera.matrixWorld,
+        0
+      )
+      const heroUp = new THREE.Vector3().setFromMatrixColumn(
+        heroCamera.matrixWorld,
+        1
+      )
+      let roomPoints = null
+      let shelfPoints = null
+      let glide = null
+      const glideDelta = new THREE.Vector3()
+
+      // Free part of the canvas in px: what the navbar, the side panel or
+      // the bottom sheet don't cover. (cx, cy) is its centre's offset from
+      // the canvas centre, y pointing down
+      const freeArea = () => {
+        const w = container.clientWidth
+        const h = container.clientHeight
+        const panel = refPanelWidth.current
+        let left = 0
+        let right = w
+        let top = NAVBAR_HEIGHT
+        let bottom = h
+        if (panel && w < SHEET_BELOW) bottom = h * (1 - SHEET_HEIGHT)
+        else if (panel) right = Math.max(w - panel, w * 0.3)
+        if (bottom - top < 80) top = 0
+        return {
+          w,
+          h,
+          fw: right - left,
+          fh: bottom - top,
+          cx: (left + right - w) / 2,
+          cy: (top + bottom - h) / 2
+        }
+      }
+
+      const viewFor = (points, fill) => {
+        const area = freeArea()
+        let minX = Infinity
+        let maxX = -Infinity
+        let minY = Infinity
+        let maxY = -Infinity
+        const centre = new THREE.Vector3()
+        for (const p of points) {
+          const x = p.dot(heroRight)
+          const y = p.dot(heroUp)
+          minX = Math.min(minX, x)
+          maxX = Math.max(maxX, x)
+          minY = Math.min(minY, y)
+          maxY = Math.max(maxY, y)
+          centre.add(p)
+        }
+        centre.divideScalar(points.length)
+        // Slide the centroid within the screen plane onto the outline's centre
+        centre
+          .addScaledVector(heroRight, (minX + maxX) / 2 - centre.dot(heroRight))
+          .addScaledVector(heroUp, (minY + maxY) / 2 - centre.dot(heroUp))
+        const halfX = Math.max((maxX - minX) / 2, 1e-3)
+        const halfY = Math.max((maxY - minY) / 2, 1e-3)
+        // Ortho camera: canvas height h shows 2 * scale / zoom world units
+        const zoom = THREE.MathUtils.clamp(
+          Math.min(
+            (fill * area.fw * scale) / (halfX * area.h),
+            (fill * area.fh * scale) / (halfY * area.h)
+          ),
+          0.2,
+          20
+        )
+        const pxPerUnit = (area.h * zoom) / (2 * scale)
+        // Shift the camera so the outline sits in the free area's centre
+        const viewTarget = centre
+          .clone()
+          .addScaledVector(heroRight, -area.cx / pxPerUnit)
+          .addScaledVector(heroUp, area.cy / pxPerUnit)
+        return { target: viewTarget, zoom }
+      }
+
+      const desiredView = () => {
+        if (refFocus.current === 'shelf' && shelfPoints) {
+          // Leave some wall around the shelf so it reads as part of the room
+          return viewFor(shelfPoints, 0.45)
+        }
+        const { w, h } = freeArea()
+        // Portrait phones are width-bound: let the room go nearly edge to edge
+        const fill = refPanelWidth.current ? 0.9 : w < h ? 0.98 : 0.82
+        return viewFor(roomPoints, fill)
+      }
+
+      // Move target and camera together so the view angle stays the same
+      const moveTo = (viewTarget, zoom) => {
+        glideDelta.subVectors(viewTarget, target)
+        target.add(glideDelta)
+        camera.position.add(glideDelta)
+        camera.zoom = zoom
+        camera.updateProjectionMatrix()
+      }
+
+      const updateView = ({ animate }) => {
+        if (!roomPoints) return
+        const view = desiredView()
+        if (!animate || reduceMotion) {
+          glide = null
+          moveTo(view.target, view.zoom)
+          return
+        }
+        glide = {
+          start: performance.now(),
+          from: target.clone(),
+          fromZoom: camera.zoom,
+          to: view
+        }
+      }
+
+      const updateGlide = (now) => {
+        const t = Math.min(1, (now - glide.start) / GLIDE_MS)
+        const e = smoothstep(t)
+        moveTo(
+          glideDelta.lerpVectors(glide.from, glide.to.target, e).clone(),
+          THREE.MathUtils.lerp(glide.fromZoom, glide.to.zoom, e)
+        )
+        if (t === 1) glide = null
+      }
+
+      const resize = () => {
+        const { clientWidth: w, clientHeight: h } = container
+        if (!w || !h) return
+        camera.left = (-scale * w) / h
+        camera.right = (scale * w) / h
+        camera.updateProjectionMatrix()
+        updateView({ animate: false })
+      }
+      refFit.current = resize
+      refUpdateView.current = () => updateView({ animate: true })
 
       const updateSway = (now) => {
         if (dragging || now - releasedAt < 2500) return
@@ -1146,9 +1362,19 @@ const VoxelDog = () => {
         plantLeaves = plant.leaves
 
         // Wall shelf on the front part of the right wall
-        const shelf = buildShelf(size.y)
+        const { group: shelf, topicBooks, pullOut } = buildShelf(size.y)
         shelf.position.set(roomSize * 0.8, size.y * 0.5, size.y * 0.01)
         room.group.add(shelf)
+        hotspots.add(shelf, { label: '📚 Bookshelf', href: '/posts' })
+        for (const topic of TOPICS) {
+          const book = topicBooks[topic.id]
+          if (!book) continue
+          hotspots.add(book.mesh, {
+            label: `${topic.emoji} ${topic.label}`,
+            href: `/posts#${topic.id}`
+          })
+          books.push({ ...book, id: topic.id, pullOut })
+        }
         scene.add(room.group)
 
         // Sun/moon shadows cover the whole room; lamp shadows reach the walls
@@ -1196,9 +1422,15 @@ const VoxelDog = () => {
         // Movable parts split out in Blender: pivots at neck and hinge
         headPart = model.getObjectByName('head')
         lidPart = model.getObjectByName('laptop_lid')
+        hotspots.add(lidPart, {
+          label: '💻 GitHub ↗',
+          href: GITHUB_URL,
+          external: true
+        })
         armR = model.getObjectByName('arm_R')
         armL = model.getObjectByName('arm_L')
         mugPart = model.getObjectByName('mug')
+        hotspots.add(mugPart, { label: '☕ About me', href: '/#about' })
         eyelids = model.getObjectByName('eyelids')
         // Blender XYZ euler maps to three.js YXZ once the axes are swapped
         for (const part of [headPart, armR, armL]) {
@@ -1301,63 +1533,39 @@ const VoxelDog = () => {
           .union(new THREE.Box3().setFromObject(lamp))
           .getCenter(target)
 
-        // Fit the whole diorama on screen as seen from the hero angle:
-        // project every room vertex plus the furniture, then re-centre the
-        // view on that outline and zoom so it fills the canvas
-        const fitCamera = camera.clone()
-        fitCamera.zoom = 1
-        fitCamera.updateProjectionMatrix()
-        fitCamera.position.copy(target).add(initialCameraPosition)
-        fitCamera.lookAt(target)
-        fitCamera.updateMatrixWorld()
-        const outline = new THREE.Box2()
-        const point = new THREE.Vector3()
-        const addPoint = () => {
-          point.project(fitCamera)
-          outline.expandByPoint(new THREE.Vector2(point.x, point.y))
+        // Outlines to frame: every room vertex plus the furniture's box,
+        // and the bookshelf on its own
+        const collectPoints = (object) => {
+          const points = []
+          object.updateMatrixWorld(true)
+          object.traverse((mesh) => {
+            if (!mesh.isMesh) return
+            const positions = mesh.geometry.attributes.position
+            for (let i = 0; i < positions.count; i++) {
+              points.push(
+                new THREE.Vector3()
+                  .fromBufferAttribute(positions, i)
+                  .applyMatrix4(mesh.matrixWorld)
+              )
+            }
+          })
+          return points
         }
-        room.group.updateMatrixWorld(true)
-        room.group.traverse((mesh) => {
-          if (!mesh.isMesh) return
-          const positions = mesh.geometry.attributes.position
-          for (let i = 0; i < positions.count; i++) {
-            point
-              .fromBufferAttribute(positions, i)
-              .applyMatrix4(mesh.matrixWorld)
-            addPoint()
-          }
-        })
+        roomPoints = collectPoints(room.group)
         const furniture = new THREE.Box3()
           .setFromObject(model)
           .union(new THREE.Box3().setFromObject(lamp))
         for (let i = 0; i < 8; i++) {
-          point.set(
-            i & 1 ? furniture.max.x : furniture.min.x,
-            i & 2 ? furniture.max.y : furniture.min.y,
-            i & 4 ? furniture.max.z : furniture.min.z
+          roomPoints.push(
+            new THREE.Vector3(
+              i & 1 ? furniture.max.x : furniture.min.x,
+              i & 2 ? furniture.max.y : furniture.min.y,
+              i & 4 ? furniture.max.z : furniture.min.z
+            )
           )
-          addPoint()
         }
-        const outlineCenter = outline.getCenter(new THREE.Vector2())
-        const outlineHalf = outline
-          .getSize(new THREE.Vector2())
-          .multiplyScalar(0.5)
-        target
-          .addScaledVector(
-            new THREE.Vector3().setFromMatrixColumn(fitCamera.matrixWorld, 0),
-            outlineCenter.x * scale
-          )
-          .addScaledVector(
-            new THREE.Vector3().setFromMatrixColumn(fitCamera.matrixWorld, 1),
-            outlineCenter.y * scale
-          )
-        // Small margin so the gentle sway never clips the room's edges
-        camera.zoom = THREE.MathUtils.clamp(
-          0.9 / Math.max(outlineHalf.x, outlineHalf.y),
-          0.5,
-          1.4
-        )
-        camera.updateProjectionMatrix()
+        shelfPoints = collectPoints(shelf)
+        resize()
 
         animate()
         setLoading(false)
@@ -1574,12 +1782,24 @@ const VoxelDog = () => {
         positionAttr.needsUpdate = true
       }
 
+      // The open topic's book slides out of the shelf towards the room
+      const updateBooks = () => {
+        for (const book of books) {
+          const out = book.id === refTopic.current ? book.pullOut : 0
+          book.mesh.position.z +=
+            (book.restZ + out - book.mesh.position.z) * 0.12
+        }
+      }
+
       let req = null
-      let frame = 0
+      // Reduced motion: no intro swing, start on the hero angle
+      let frame = reduceMotion ? 101 : 0
+      let tick = 0 // every rendered frame (frame stops counting after the intro)
       const animate = () => {
         req = requestAnimationFrame(animate)
 
         frame = frame <= 100 ? frame + 1 : frame
+        if (glide) updateGlide(performance.now())
 
         if (frame <= 100) {
           const p = initialCameraPosition
@@ -1594,6 +1814,10 @@ const VoxelDog = () => {
             target.z + p.z * Math.cos(rotSpeed) - p.x * Math.sin(rotSpeed)
           camera.lookAt(target)
         } else {
+          if (frame === 101) {
+            frame++
+            hotspots.setEnabled(true)
+          }
           updateSway(performance.now())
           controls.update()
         }
@@ -1606,27 +1830,60 @@ const VoxelDog = () => {
         updateSky(time)
         updatePlant(time)
         updateDog(performance.now(), time)
+        updateBooks()
 
+        tick++
+        if (tick % SHADOW_EVERY === 1) renderer.shadowMap.needsUpdate = true
         renderer.render(scene, camera)
       }
 
       return () => {
         cancelAnimationFrame(req)
+        hotspots.dispose()
         renderer.domElement.remove()
         renderer.dispose()
       }
     }
   }, [])
 
+  // A new page re-frames the camera: room or bookshelf, beside the panel
   useEffect(() => {
-    window.addEventListener('resize', handleWindowResize, false)
-    return () => {
-      window.removeEventListener('resize', handleWindowResize, false)
-    }
-  }, [handleWindowResize])
+    refFocus.current = focus
+    refPanelWidth.current = panelWidth
+    if (refUpdateView.current) refUpdateView.current()
+  }, [focus, panelWidth])
+
+  useEffect(() => {
+    refTopic.current = activeTopic
+  }, [activeTopic])
+
+  // Canvas follows the window size
+  useEffect(() => {
+    const observer = new ResizeObserver(handleResize)
+    observer.observe(refContainer.current)
+    return () => observer.disconnect()
+  }, [handleResize])
 
   return (
-    <DogContainer ref={refContainer}>{loading && <DogSpinner />}</DogContainer>
+    <DogContainer ref={refContainer}>
+      {loading && <DogSpinner />}
+      <Box
+        ref={refLabel}
+        display="none"
+        position="absolute"
+        transform="translateX(-50%)"
+        px={2}
+        py={1}
+        borderRadius="md"
+        fontSize="sm"
+        fontWeight="semibold"
+        whiteSpace="nowrap"
+        pointerEvents="none"
+        zIndex={1}
+        bg={labelBg}
+        color={labelColor}
+      />
+    </DogContainer>
   )
 }
 
