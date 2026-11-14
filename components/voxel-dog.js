@@ -10,8 +10,8 @@ import { createHotspots } from './room-hotspots'
 import { SHEET_BELOW, SHEET_HEIGHT } from './panel'
 import { topicById } from '../libs/topics'
 import { heroInset } from '../libs/layout'
+import { GITHUB_URL } from '../libs/links'
 
-const GITHUB_URL = 'https://github.com/jhimy-michel'
 const GLIDE_MS = 900
 const NAVBAR_HEIGHT = 64
 const SHADOW_EVERY = 3 // redraw shadows every Nth frame
@@ -41,14 +41,7 @@ function easeOutCirc(x) {
 
 // Lighting presets per color mode: daylight vs cozy reading lamp
 const LIGHTS = {
-  light: {
-    // Golden afternoon: warm sun, soft sky ambient, sunlit dust
-    ambient: { color: 0xbcd6de, intensity: 0.55 },
-    directional: { color: 0xffe3b8, intensity: 1.2 },
-    lamp: { color: 0xffd9b0, intensity: 0.35 },
-    lampGlow: 0.05,
-    dust: 0.3
-  },
+  // (light mode follows the day keyframes below, DAY_KEYS)
   dark: {
     ambient: { color: 0x46626b, intensity: 0.3 },
     directional: { color: 0x7790a0, intensity: 0.25 },
@@ -507,19 +500,21 @@ function repaintPalette(texture, cells) {
   texture.needsUpdate = true
 }
 
-// World bounds of the vertices of `mesh` painted with the given palette
-// cells (the chair inside the body mesh)
-function paletteBounds(mesh, cells) {
-  const bounds = new THREE.Box3()
+// World positions of the vertices of `mesh` painted with the given
+// palette cells (the chair inside the body mesh)
+function palettePoints(mesh, cells) {
+  const points = []
   const { position, uv } = mesh.geometry.attributes
-  const point = new THREE.Vector3()
   const width = mesh.material.map.image.width
   for (let i = 0; i < position.count; i++) {
     if (!cells.includes(Math.floor(uv.getX(i) * width))) continue
-    point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld)
-    bounds.expandByPoint(point)
+    points.push(
+      new THREE.Vector3()
+        .fromBufferAttribute(position, i)
+        .applyMatrix4(mesh.matrixWorld)
+    )
   }
-  return bounds
+  return points
 }
 
 // Aymara aguayo (Bolivian woven cloth) as pixel art: wide solid bands
@@ -983,6 +978,92 @@ function drinkPose(elapsed) {
     start = step.until
   }
   return null
+}
+
+// Things Perrito thinks about while he works, shown in a small bubble
+const THOUGHTS = ['☕', '💡', '🐛', 'LGTM', 'git push', '¡Vamos!', '🚀', '🤔']
+const LATE_THOUGHTS = ['🌙', '😴', 'one more commit…']
+
+// Idle moments between bursts of work (ms)
+const IDLE = {
+  every: [45000, 90000],
+  stretch: 3200,
+  think: 3200,
+  window: 3600
+}
+const PET_MS = 1600
+// Paw poses for the right arm (the left one mirrors them). His arms are
+// only paws, so poses keep them close to the body: lifted far, they'd
+// float with gaps (a big arm stretch needs upper arms modelled in
+// Blender). Offsets from the rest position, angles in degrees
+const PAW_POSES = {
+  // Cheer: both paws up at his chin (like the coffee sip, both sides)
+  cheer: { pos: [-0.2, 0.15, 0.15], rx: -70, ry: -40 }
+}
+const CHEER_MS = 1400
+const WAKE_MS = 2600
+const BUBBLE_MS = 3200
+
+// Thought bubble: rounded white card with the text and a small tail
+function buildBubbleTexture(text) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  ctx.font = 'bold 44px "M PLUS Rounded 1c", sans-serif'
+  const textWidth = Math.min(ctx.measureText(text).width, 200)
+  const w = textWidth + 44
+  const x = (256 - w) / 2
+  ctx.fillStyle = 'rgba(255, 253, 245, 0.95)'
+  ctx.beginPath()
+  ctx.roundRect(x, 8, w, 76, 30)
+  ctx.fill()
+  // Tail: two small dots towards the head (bottom left)
+  ctx.beginPath()
+  ctx.arc(x + 22, 96, 9, 0, Math.PI * 2)
+  ctx.arc(x + 8, 114, 5, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#2a2f3a'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, 128, 48, 200)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.encoding = THREE.sRGBEncoding
+  return texture
+}
+
+// Pixel heart for petting
+function buildHeartTexture() {
+  const rows = [
+    '.##.##.',
+    '#######',
+    '#######',
+    '.#####.',
+    '..###..',
+    '...#...'
+  ]
+  const canvas = document.createElement('canvas')
+  canvas.width = 7
+  canvas.height = 7
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#e8505b'
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === '#') ctx.fillRect(x, y + 1, 1, 1)
+    }
+  })
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.encoding = THREE.sRGBEncoding
+  return texture
+}
+
+// 0 -> 1 -> 0 over a moment: eased in for `edge` of it, held, eased out
+function envelope(t, edge = 0.2) {
+  if (t <= 0 || t >= 1) return 0
+  if (t < edge) return smoothstep(t / edge)
+  if (t > 1 - edge) return smoothstep((1 - t) / edge)
+  return 1
 }
 
 // Soft round puff for the coffee steam
@@ -1663,6 +1744,19 @@ const VoxelDog = ({
       // Post books on the shelf: { mesh, restZ, pullOut, slug, topic }
       const books = []
       const armRRest = new THREE.Vector3()
+      const armLRest = new THREE.Vector3()
+      // Blend an arm from its current pose towards a paw pose. side: 1
+      // right arm, -1 left (mirrored); lift: extra height for a bounce
+      const posePaw = (arm, rest, pose, amount, side, lift = 0) => {
+        if (amount <= 0) return
+        arm.position.set(
+          rest.x + side * pose.pos[0] * amount,
+          rest.y + (pose.pos[1] + lift) * amount,
+          rest.z + pose.pos[2] * amount
+        )
+        arm.rotation.x += (pose.rx * DEG - arm.rotation.x) * amount
+        arm.rotation.y += (side * pose.ry * DEG - arm.rotation.y) * amount
+      }
       const mugRestPos = new THREE.Vector3()
       const mugRestQuat = new THREE.Quaternion()
       const mugHeld = new THREE.Matrix4()
@@ -1675,6 +1769,25 @@ const VoxelDog = ({
       let nextDrinkAt = performance.now() + 7000 + Math.random() * 5000
       let drinkStart = null
       let nextBlinkAt = performance.now() + 2000
+      // Where Perrito looks: the hovered object, else the window, else the
+      // open panel. Smoothed head yaw/pitch and how much the look applies
+      const look = { yaw: 0, pitch: 0, level: 0 }
+      let hoverPoint = null
+      const lookPoint = new THREE.Vector3()
+      const headWorld = new THREE.Vector3()
+      let windowPoint = null
+      // Petting, cheering after several pets, half waking at night
+      // (start times far in the past: never infinite, sin(Infinity) is NaN)
+      let petStart = -1e9
+      let pets = []
+      let cheerStart = -1e9
+      let wakeStart = -1e9
+      const hearts = []
+      // Idle moments and thought bubbles
+      let idle = null // { kind, start, until }
+      let nextIdleAt = performance.now() + 30000 + Math.random() * 20000
+      let bubble = null // { sprite, start }
+      let nextBubbleAt = performance.now() + 12000 + Math.random() * 10000
       let blinkStart = null
       let sleepLevel = initial.sleep || 0
       const SEASON = getSeason()
@@ -1715,6 +1828,14 @@ const VoxelDog = ({
         camera,
         dom: renderer.domElement,
         onHover: (spot, x, y) => {
+          // Not his own head or paws: looking at himself loops (the head
+          // moves, so the point moves, so the head moves...)
+          hoverPoint =
+            spot && !spot.self
+              ? new THREE.Box3()
+                  .setFromObject(spot.object)
+                  .getCenter(new THREE.Vector3())
+              : null
           const label = refLabel.current
           if (!label) return
           label.style.display = spot ? 'block' : 'none'
@@ -1832,8 +1953,10 @@ const VoxelDog = ({
 
       const desiredView = () => {
         if (refFocus.current === 'shelf' && shelfPoints) {
-          // Leave some wall around the shelf so it reads as part of the room
-          return viewFor(shelfPoints, 0.45)
+          // Leave some wall around the shelf so it reads as part of the
+          // room. Above a phone's bottom sheet the strip is short: fill it
+          const sheet = container.clientWidth < SHEET_BELOW
+          return viewFor(shelfPoints, sheet ? 0.85 : 0.45)
         }
         const { w, h } = freeArea()
         // Portrait phones are width-bound: let the room go nearly edge to edge
@@ -1909,6 +2032,8 @@ const VoxelDog = ({
         camera.lookAt(target)
       }
 
+      let disposed = false
+
       // The posts for the bookshelf (written at build time)
       const shelfPosts = fetch('/shelf.json')
         .then(response => (response.ok ? response.json() : []))
@@ -1921,6 +2046,9 @@ const VoxelDog = ({
         }),
         shelfPosts
       ]).then(([model, posts]) => {
+        // This room was already torn down (React mounts effects twice in
+        // development): don't wire the late model into anything
+        if (disposed) return
         // Bounding box of the chair/dog only: the GLB also contains a flat
         // ground/shadow plane that would otherwise blow up the box
         const fullBox = new THREE.Box3().setFromObject(model)
@@ -1947,20 +2075,15 @@ const VoxelDog = ({
         const body = model.getObjectByName('body')
         if (body?.isMesh && body.material.map) {
           const chairCells = CHAIR_COLORS.map(([index]) => index)
-          const chair = paletteBounds(body, chairCells)
+          const chairPoints = palettePoints(body, chairCells)
+          const chair = new THREE.Box3().setFromPoints(chairPoints)
           repaintPalette(body.material.map, CHAIR_COLORS)
           if (!chair.isEmpty()) {
             const chairSize = chair.getSize(new THREE.Vector3())
-            // Armrest top: highest chair point along the left edge
+            // Armrest top: highest chair point at the front of the left edge
             const armWidth = chairSize.x * 0.17
             let armTop = chair.min.y
-            const { position, uv } = body.geometry.attributes
-            const point = new THREE.Vector3()
-            const width = body.material.map.image.width
-            for (let i = 0; i < position.count; i++) {
-              if (!chairCells.includes(Math.floor(uv.getX(i) * width))) continue
-              point.fromBufferAttribute(position, i)
-              point.applyMatrix4(body.matrixWorld)
+            for (const point of chairPoints) {
               if (
                 point.x < chair.min.x + armWidth * 0.8 &&
                 point.z > chair.max.z - chairSize.z * 0.3
@@ -2094,6 +2217,10 @@ const VoxelDog = ({
         })
         room.group.add(roomWindow.group)
         skyMaterial = roomWindow.material
+        room.group.updateMatrixWorld(true)
+        windowPoint = new THREE.Box3()
+          .setFromObject(roomWindow.group)
+          .getCenter(new THREE.Vector3())
         // Zurich or La Paz outside: hover shows the place and its time,
         // clicking switches to the other view
         hotspots.add(roomWindow.group, {
@@ -2212,11 +2339,53 @@ const VoxelDog = ({
         mugPart = model.getObjectByName('mug')
         hotspots.add(mugPart, { label: '☕ About me', href: '/#about' })
         eyelids = model.getObjectByName('eyelids')
+        // Petting: click his head, paws or eyelids
+        const pet = () => {
+          const now = performance.now()
+          if (sleepLevel > 0.5) {
+            wakeStart = now
+          } else {
+            petStart = now
+            pets = pets.filter(at => now - at < 2500)
+            pets.push(now)
+            if (pets.length >= 3) {
+              cheerStart = now
+              pets = []
+            }
+          }
+          const heart = hearts.find(h => !h.sprite.visible)
+          if (heart) {
+            heart.start = now
+            heart.sprite.visible = true
+          }
+        }
+        for (const part of [headPart, armL, armR, eyelids]) {
+          hotspots.add(part, {
+            label: '🐾 Pet Perrito',
+            action: pet,
+            self: true
+          })
+        }
+
+        const heartMaterial = new THREE.SpriteMaterial({
+          map: buildHeartTexture(),
+          transparent: true,
+          depthTest: false,
+          toneMapped: false
+        })
+        for (let i = 0; i < 6; i++) {
+          const sprite = new THREE.Sprite(heartMaterial.clone())
+          sprite.visible = false
+          sprite.renderOrder = 10
+          scene.add(sprite)
+          hearts.push({ sprite, start: 0, drift: (i % 3) - 1 })
+        }
         // Blender XYZ euler maps to three.js YXZ once the axes are swapped
         for (const part of [headPart, armR, armL]) {
           if (part) part.rotation.order = 'YXZ'
         }
         if (armR) armRRest.copy(armR.position)
+        if (armL) armLRest.copy(armL.position)
         if (mugPart) {
           mugRestPos.copy(mugPart.position)
           mugRestQuat.copy(mugPart.quaternion)
@@ -2460,8 +2629,89 @@ const VoxelDog = ({
       }
 
       // Perrito himself: typing, coffee breaks, blinking, sleeping pose
+      const showBubble = (text, now) => {
+        if (bubble) {
+          scene.remove(bubble.sprite)
+          bubble.sprite.material.map.dispose()
+          bubble.sprite.material.dispose()
+        }
+        const sprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: buildBubbleTexture(text),
+            transparent: true,
+            depthTest: false,
+            toneMapped: false // keep it paper white in any light
+          })
+        )
+        sprite.renderOrder = 10
+        scene.add(sprite)
+        bubble = { sprite, start: now }
+      }
+
+      const updateBubble = (now, awake) => {
+        if (!bubble) return
+        const t = (now - bubble.start) / BUBBLE_MS
+        if (t >= 1 || awake < 0.5) {
+          scene.remove(bubble.sprite)
+          bubble.sprite.material.map.dispose()
+          bubble.sprite.material.dispose()
+          bubble = null
+          nextBubbleAt = now + 25000 + Math.random() * 25000
+          return
+        }
+        // Pops in and out, floating up and right of his head
+        const pop = envelope(t, 0.1)
+        bubble.sprite.position
+          .copy(headWorld)
+          .add(
+            lookPoint.set(zScale * 0.3, zScale * 0.48 + t * zScale * 0.03, 0)
+          )
+        bubble.sprite.scale.set(zScale * 0.48 * pop, zScale * 0.24 * pop, 1)
+      }
+
+      const updateHearts = now => {
+        for (const heart of hearts) {
+          if (!heart.sprite.visible) continue
+          const t = (now - heart.start) / 1400
+          if (t >= 1) {
+            heart.sprite.visible = false
+            continue
+          }
+          heart.sprite.position.set(
+            headWorld.x +
+              heart.drift * zScale * 0.08 +
+              Math.sin(t * 9) * zScale * 0.015,
+            headWorld.y + zScale * (0.4 + t * 0.25),
+            headWorld.z + zScale * 0.1
+          )
+          heart.sprite.scale.setScalar(
+            zScale * 0.07 * (0.6 + 0.4 * envelope(t, 0.15))
+          )
+          heart.sprite.material.opacity = 1 - t * t
+        }
+      }
+
+      // Where to look: hovered object > window gaze >
+      // the open panel. Returns a world point or null
+      const lookGoal = (now, gaze) => {
+        if (hoverPoint) return hoverPoint
+        if (gaze > 0 && windowPoint) return windowPoint
+        if (refPanelWidth.current) {
+          return lookPoint
+            .copy(headWorld)
+            .addScaledVector(heroRight, zScale * 2)
+        }
+        return null
+      }
+
       const updateDog = (now, time) => {
-        const eased = smoothstep(sleepLevel)
+        if (headPart) {
+          headPart.getWorldPosition(headWorld)
+          headWorld.y += zScale * 0.15
+        }
+        // A click at night half wakes him for a moment
+        const wake = envelope((now - wakeStart) / WAKE_MS, 0.3)
+        const eased = smoothstep(sleepLevel) * (1 - 0.65 * wake)
         const awake = 1 - eased
 
         // A coffee break every 20-40 s while awake
@@ -2477,6 +2727,54 @@ const VoxelDog = ({
           }
         }
 
+        // Idle moments every minute or so, when nothing else is going on
+        if (idle && now > idle.until) {
+          idle = null
+          nextIdleAt =
+            now +
+            IDLE.every[0] +
+            Math.random() * (IDLE.every[1] - IDLE.every[0])
+        }
+        if (!idle && !drink && awake > 0.95 && now >= nextIdleAt) {
+          const kind = ['stretch', 'think', 'window'][
+            Math.floor(Math.random() * 3)
+          ]
+          idle = { kind, start: now, until: now + IDLE[kind] }
+        }
+        const idleEnv = idle
+          ? envelope((now - idle.start) / (idle.until - idle.start), 0.25)
+          : 0
+        const stretch = idle?.kind === 'stretch' ? idleEnv : 0
+        const think = idle?.kind === 'think' ? idleEnv : 0
+        const gaze = idle?.kind === 'window' ? idleEnv : 0
+        // An idea at the end of a thinking pause
+        if (
+          idle?.kind === 'think' &&
+          !idle.bubbled &&
+          now - idle.start > IDLE.think * 0.5
+        ) {
+          idle.bubbled = true
+          showBubble('💡', now)
+        }
+        const petEnv = envelope((now - petStart) / PET_MS, 0.15)
+        const petT = (now - petStart) / PET_MS
+        const cheer = envelope((now - cheerStart) / CHEER_MS, 0.25)
+        // Paws up for a stretch or a cheer; typing pauses meanwhile
+        // Paws pause typing for a cheer; the stretch is a neck stretch
+        const armsUp = Math.max(stretch, cheer)
+        const work = awake * (1 - Math.max(armsUp, think))
+        // Cheer: paws bounce at his chin
+        const bounce = Math.abs(Math.sin((now - cheerStart) / 90)) * 0.08
+
+        // Thought bubbles now and then while awake
+        if (!bubble && !drink && awake > 0.95 && now >= nextBubbleAt) {
+          const late = currentHour() >= 21
+          const pool = late ? [...THOUGHTS, ...LATE_THOUGHTS] : THOUGHTS
+          showBubble(pool[Math.floor(Math.random() * pool.length)], now)
+        }
+        updateBubble(now, awake)
+        updateHearts(now)
+
         // Typing: bursts of quick, uneven taps (paws lift = negative x).
         // Asleep: arms droop a little onto the closed laptop
         const tap = phase =>
@@ -2485,7 +2783,11 @@ const VoxelDog = ({
             Math.sin(time * 0.45 + phase) * Math.sin(time * 0.13 + phase * 2)
           ) ** 2
         const droop = 0.08 * eased
-        if (armL) armL.rotation.x = -tap(0) * 0.2 * awake + droop
+        if (armL) {
+          armL.rotation.set(-tap(0) * 0.2 * work + droop, 0, 0)
+          armL.position.copy(armLRest)
+          posePaw(armL, armLRest, PAW_POSES.cheer, cheer, -1, bounce)
+        }
         if (armR) {
           if (drink) {
             armR.position.set(
@@ -2496,7 +2798,12 @@ const VoxelDog = ({
             armR.rotation.set(drink.rx, drink.ry, 0)
           } else {
             armR.position.copy(armRRest)
-            armR.rotation.set(-tap(1.7) * 0.2 * awake + droop, 0, 0)
+            armR.rotation.set(
+              -tap(1.7) * 0.2 * work + droop - think * 0.5,
+              0,
+              0
+            )
+            posePaw(armR, armRRest, PAW_POSES.cheer, cheer, 1, bounce)
           }
         }
 
@@ -2541,11 +2848,52 @@ const VoxelDog = ({
             if (drink.sipping) rx += Math.sin(time * 0.3) * 0.03
             ry = drink.headRy
           }
+          // Look at the goal (yaw: +x is his left; pitch: up)
+          const goal = drink ? null : lookGoal(now, gaze)
+          let yaw = 0
+          let pitch = 0
+          let level = 0
+          if (goal) {
+            const dx = goal.x - headWorld.x
+            const dy = goal.y - headWorld.y
+            const dz = goal.z - headWorld.z
+            yaw = THREE.MathUtils.clamp(Math.atan2(dx, dz), -0.7, 0.7)
+            pitch = THREE.MathUtils.clamp(
+              Math.atan2(dy, Math.hypot(dx, dz)),
+              -0.3,
+              0.35
+            )
+            level = awake * (gaze > 0 && goal === windowPoint ? gaze : 1)
+          }
+          look.yaw += (yaw - look.yaw) * 0.08
+          look.pitch += (pitch - look.pitch) * 0.08
+          look.level += (level - look.level) * 0.06
+          rx += (-look.pitch - rx) * look.level
+          ry += (look.yaw - ry) * look.level
           // Glance up towards the lamp (his left, +x) after a theme switch
-          const look = glance() * awake
-          rx -= 0.15 * look
-          ry += 0.45 * look
-          headPart.rotation.set(rx, ry, 0.12 * eased)
+          const lamp = glance() * awake
+          rx -= 0.15 * lamp
+          ry += 0.45 * lamp
+          // Cheer: head back; thinking: up and to the side
+          rx -= 0.2 * cheer + 0.22 * think
+          ry += 0.18 * think
+          // Neck stretch: eyes shut, head rolls slowly to one side and then
+          // the other (his arms are only paws, so no big arm stretch)
+          const roll =
+            idle?.kind === 'stretch'
+              ? Math.sin(((now - idle.start) / IDLE.stretch) * Math.PI * 2) *
+                0.28 *
+                stretch
+              : 0
+          rx -= 0.08 * stretch
+          // Petted: happy side to side wiggle
+          const wiggle =
+            petEnv > 0 ? Math.sin(petT * Math.PI * 4) * 0.14 * petEnv : 0
+          headPart.rotation.set(
+            rx - 0.05 * petEnv,
+            ry,
+            0.12 * eased + wiggle + roll
+          )
         }
 
         // Eyelids: closed asleep and mid-sip, quick blink every few seconds
@@ -2561,7 +2909,14 @@ const VoxelDog = ({
               blink = Math.sin(Math.PI * b)
             }
           }
-          const closed = Math.max(eased, blink, drink && drink.sipping ? 1 : 0)
+          // Content squint while petted
+          const closed = Math.max(
+            eased,
+            blink,
+            drink && drink.sipping ? 1 : 0,
+            petEnv * 0.7,
+            stretch * 0.9 // eyes shut for the stretch
+          )
           eyelids.visible = closed > 0.02
           eyelids.scale.y = Math.max(closed, 0.001)
         }
@@ -2708,6 +3063,7 @@ const VoxelDog = ({
       }
 
       return () => {
+        disposed = true
         cancelAnimationFrame(req)
         hotspots.dispose()
         renderer.domElement.remove()

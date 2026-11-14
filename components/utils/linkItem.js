@@ -9,32 +9,32 @@ import { Link, useColorModeValue } from '@chakra-ui/react'
  * @returns {JSX.Element} Styled link component
  */
 const LinkItem = ({ href, path, children }) => {
-    const active = path === href
-    const activeColor = useColorModeValue('brand.teal', 'brand.orange')
-    const inactiveColor = useColorModeValue('brand.teal', 'brand.orange')
-    const hoverColor = useColorModeValue('brand.rust', 'brand.sand')
-    
-    return (
-      <Link
-        as={NextLink}
-        href={href}
-        p={2}
-        position="relative"
-        transition="all 0.3s ease-in-out"
-        color={inactiveColor}
-        textDecoration={active ? 'underline' : 'none'}
-        textUnderlineOffset="6px"
-        textDecorationThickness="2px"
-        textDecorationColor={activeColor}
-        _hover={{
-          color: hoverColor,
-          textDecoration: 'underline',
-          textDecorationColor: hoverColor
-        }}
-      >
-        {children}
-      </Link>
-    )
-  }
-  
-  export default LinkItem
+  const active = path === href
+  const activeColor = useColorModeValue('brand.teal', 'brand.orange')
+  const inactiveColor = useColorModeValue('brand.teal', 'brand.orange')
+  const hoverColor = useColorModeValue('brand.rust', 'brand.sand')
+
+  return (
+    <Link
+      as={NextLink}
+      href={href}
+      p={2}
+      position="relative"
+      transition="all 0.3s ease-in-out"
+      color={inactiveColor}
+      textDecoration={active ? 'underline' : 'none'}
+      textUnderlineOffset="6px"
+      textDecorationThickness="2px"
+      textDecorationColor={activeColor}
+      _hover={{
+        color: hoverColor,
+        textDecoration: 'underline',
+        textDecorationColor: hoverColor
+      }}
+    >
+      {children}
+    </Link>
+  )
+}
+
+export default LinkItem

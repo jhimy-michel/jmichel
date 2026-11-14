@@ -2,7 +2,13 @@
 
 Brainstorm from 2026-11-12, to review later. ⭐ marks the ideas recommended to start with.
 
-**Built so far (2026-11-13):** the room fills the screen on every page and pages open in a panel over it. Clickable objects: bookshelf → Posts (each book is a topic: Tech, Travel, Life), laptop → GitHub, mug → About. Pixel Perrito logo and tab icon. Not committed yet at the time of writing.
+**Built so far (updated 2026-11-14):**
+- **Layout:** the room fills the screen on every page and pages open in a panel over it (bottom sheet on phones). Navbar and hero text share one column; on wide screens the text sits left and the room right.
+- **Room:** filmic lighting with a hemisphere light; side table with a bedside lamp (spotlight); Swiss station-style clock (Zürich time); voxel monstera; dark green armchair with an aguayo throw; two-board bookcase with one book per post plus placeholder photo frames; glowing fairy lights.
+- **Window:** Zürich (Alps and lake) or La Paz (Illimani, city lights, teleférico), alternating by day; click to switch; hover shows the place and its time. Snow outside in winter.
+- **Theme:** light mode is always daytime, dark mode always night. The lamp is a light switch; going dark it flickers on and the fairy lights come on one by one.
+- **Perrito:** looks at hovered objects and open panels, pet him (hearts, cheer after 3 pets, half wakes at night), idle moments (neck stretch, thinking 💡, window gaze), thought bubbles, coffee, sleep.
+- **Clickable objects:** each book → its post, bookcase → Posts, laptop → GitHub, mug → About, lamp → theme, window → other city.
 
 Context: the home page hero is Perrito's room. It is a voxel room corner with the dog in his armchair, and it already follows the visitor's local time, the season, and day/night. The site is a static export on GitHub Pages, so ideas marked **(needs backend)** need a small serverless function, for example a Cloudflare Worker.
 
@@ -43,6 +49,8 @@ Context: the home page hero is Perrito's room. It is a voxel room corner with th
 - Gives people a reason to come back and see what's new.
 
 ### Animate Perrito further ⭐
+**Status 2026-11-14:** looking at what you hover/open, petting with hearts and a cheer, neck stretch, thinking pause, window gaze and thought bubbles are built. Cursor following was built and removed again (felt too busy). Still open below: startle, yawn, waking up, deep sleep, and everything that needs Blender.
+
 Brainstorm from 2026-11-13. Today he types, takes a coffee break every 20–40 s, blinks, bobs his head and falls asleep at night (laptop closes, head nods, "Z"s rise). Movable parts in the model: `head`, `arm_L`, `arm_R`, `eyelids`, `laptop_lid`, `mug`. The body is one piece, so a tail, ears or legs first need cutting out as separate parts in `archive/assets/perrito.blend`.
 
 **Reacts to the visitor (head only, cheap)**
@@ -72,7 +80,13 @@ Brainstorm from 2026-11-13. Today he types, takes a coffee break every 20–40 s
 - Holiday outfits (see Holiday events above).
 - Typing speed from your real GitHub activity (see "Perrito mirrors your real world").
 
-**Recommended order:** 1. look at what you open + follow the cursor, 2. click to pet, 3. stretch + thinking pause as random idles (about half a day for 1–3, no new 3D work). 4. tail wag after cutting the tail out in Blender.
+**Recommended order:** ~~1. look at what you open, 2. click to pet, 3. stretch + thinking pause~~ (done). Next: 4. split Perrito off the chair in Blender (below), then tail wag.
+
+### Split Perrito off the chair (Blender) ⭐
+His torso, legs and tail are one mesh with the armchair, and his arms are only paw blocks. Splitting him off (on a copy of the GLB, keeping today's part names) and adding upper arms would unlock:
+- a real arm stretch and arms-up cheer (today's code poses must stay close to the body or the paws float)
+- hopping off the chair to stretch on the rug, then back up to typing
+- tail wag, ear twitches, swinging legs, sleeping on the rug, walking to the window
 
 ---
 
@@ -129,23 +143,31 @@ There is no server and no API cost: the model runs on the visitor's GPU through 
 - **Coral underlines in light mode.** Light mode is all ink; coral section underlines ("Bio", "I love"…) would add warmth.
 - **Rename colour tokens.** `brand.teal` now holds ink blue. Rename tokens by role (`brand.primary`, `brand.accent`, `brand.surface`…) across the site.
 - **Bigger mug.** The coffee mug looks small since the camera zoomed out for the room. It's quick to scale up in `archive/assets/perrito.blend`.
-- **Click to pet.** A hop and a "Woof · Guau · Wuff" speech bubble. (Now part of "Animate Perrito further".)
+- ~~**Click to pet.**~~ Built (hearts and a cheer). A "Woof · Guau · Wuff" bubble could still be added.
 - **More dog moves.** Ear wiggles, and typing paws that fumble when he's sleepy.
-- **Wall clock.** Shows the real time and explains the day/night behaviour at a glance.
+- ~~**Wall clock.**~~ Built: Swiss station style with Zürich time. The red second hand with a disc is SBB's protected design; a paw or bone tip in brand orange would make it our own.
 - **Sleeping cat** curled up on the rug, sometimes flicking its tail.
+- **Photos page.** The frames on the bookcase's lower board become real thumbnails linking to a Photos panel (grid plus a big view, maybe grouped by place). Needs your photos, resized at build time.
+- **Real weather in the window.** Rain streaks, snow or fog from Open-Meteo (no API key), with the temperature in the window's hover label.
+- **Window and plant.** From the camera angle a plant leaf still covers part of the window view.
 
 ---
 
 ## 6. Open housekeeping (not ideas, still to do)
 
-- [ ] **Commit the 2026-11-13 work** (room navigation, panels + bookshelf + posts, logo + tab icon, performance + cleanup, housekeeping), ideally in a few logical commits.
-- [ ] **One Prettier format pass.** Now that `arrowParens` works, 12 files differ from the style (`x => x` vs `(x) => x`). Do it as its own format-only commit.
-- [ ] **Test in a real browser:** hover/click shelf, topic books, laptop, mug; panels (✕, Esc, back button); glides; light mode; a real phone.
-- [ ] **Topic book on post pages:** while reading a post, its topic's book should stay pulled out of the shelf.
-- [ ] **Social preview image:** links still show the personal photo (`jhimy_michel.png`); a Perrito card would match the site.
+- [ ] **Split `components/voxel-dog.js`** (about 3,200 lines) into a `components/room/` folder: lighting, sky/window, furniture, Perrito's animations, and the component itself. A pure move; compare screenshots before and after.
+- [ ] **Social preview image:** links still show the personal photo (`jhimy_michel.png`); a picture of the room would match the site.
+- [ ] **Travel topic is empty:** write a first post (La Paz fits now) or hide the chip.
+- [ ] **Keyboard access to the room:** clicking objects works by mouse/touch only; the navbar covers the main pages, but the hover labels could get screen-reader text.
+- [ ] **Trim `archive/`** (1.6 MB in git: old photo, tulip, `.fbx`, old GLBs, old pages). Keep `perrito.blend`, the source of the poses.
 - [ ] **Dev-only audit warnings:** 8 moderate (`minimatch` in the lint tooling). Production dependencies report 0.
+- [x] ~~Prettier format pass~~, `npm run prettier` script fixed, `.prettierignore` covers build output, archive, posts and `public` (2026-11-14).
+- [x] ~~Profile links in one place~~: `libs/links.js` (2026-11-14).
+- [x] ~~Topic book on post pages~~: the open post's own book stays pulled out.
+- [x] ~~Real browser and phone check~~ (2026-11-14): phones get a taller room strip above the sheet, a zoomed bookcase, and a navbar fade.
+- [x] ~~Commit the 2026-11-13 work~~.
 - [x] ~~Security updates~~: `next` is on 16.4.6, `next-mdx-remote` on v6 (2026-11-13).
 - [x] ~~Prettier config typo~~: `arrowPattern` → `arrowParens`.
 - [x] ~~Remove `.DS_Store` from git~~ and add it to `.gitignore`.
 - [x] ~~CI on Node 22~~.
-- [x] ~~Phone performance~~: pixel ratio capped, shadows redrawn every 3rd frame, no lamp shadow on phones, 3D loads after the page text.
+- [x] ~~Phone performance~~: pixel ratio capped, shadows redrawn every 3rd frame, 3D loads after the page text.

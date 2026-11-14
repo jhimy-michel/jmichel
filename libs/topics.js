@@ -6,4 +6,4 @@ export const TOPICS = [
   { id: 'life', label: 'Life', emoji: '🌱', color: '#3a8c5c' }
 ]
 
-export const topicById = (id) => TOPICS.find((t) => t.id === id) || null
+export const topicById = id => TOPICS.find(t => t.id === id) || null

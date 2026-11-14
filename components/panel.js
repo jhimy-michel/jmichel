@@ -5,7 +5,9 @@ import { CloseIcon } from '@chakra-ui/icons'
 
 // Below this width the panel is a bottom sheet (Chakra's `sm` breakpoint)
 export const SHEET_BELOW = 480
-export const SHEET_HEIGHT = 0.85 // share of the screen the sheet covers
+// Share of the screen the sheet covers: leaves a strip above it where
+// the room is framed below the navbar
+export const SHEET_HEIGHT = 0.78
 export const PANEL_WIDTH = { about: 440, posts: 640 }
 
 const close = () => Router.push('/', undefined, { scroll: false })
@@ -21,7 +23,7 @@ const Panel = ({ open, width, resetKey, children }) => {
   useEffect(() => {
     if (!open) return
     refClose.current?.focus({ preventScroll: true })
-    const onKey = (event) => {
+    const onKey = event => {
       if (event.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)

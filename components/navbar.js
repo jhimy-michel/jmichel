@@ -8,7 +8,8 @@ import {
   MenuItem,
   MenuList,
   MenuButton,
-  IconButton
+  IconButton,
+  useColorModeValue
 } from '@chakra-ui/react'
 import { HamburgerIcon } from '@chakra-ui/icons'
 import ThemeToggleButton from './theme-toggle-button'
@@ -19,9 +20,21 @@ import { SITE_PADDING, SITE_WIDTH } from '../libs/layout'
 // hero text: logo and name on the left, links and theme on the right
 const NavBar = props => {
   const { path } = props
+  const fade = useColorModeValue(
+    'linear(to-b, brand.cream 55%, transparent)',
+    'linear(to-b, brand.night 55%, transparent)'
+  )
 
   return (
-    <Box position="fixed" as="nav" w="100%" zIndex={1}>
+    <Box
+      position="fixed"
+      as="nav"
+      w="100%"
+      zIndex={1}
+      // Phones: a soft fade from the page colour keeps the name readable
+      // when the room is zoomed in behind it
+      bgGradient={{ base: fade, md: 'none' }}
+    >
       <Container
         display="flex"
         alignItems="center"

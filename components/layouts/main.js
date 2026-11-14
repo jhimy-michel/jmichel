@@ -16,6 +16,7 @@ import Panel, { PANEL_WIDTH } from '../panel'
 import { useHash } from '../../libs/use-hash'
 import { topicById } from '../../libs/topics'
 import { HERO_TEXT_WIDTH, SITE_PADDING, SITE_WIDTH } from '../../libs/layout'
+import { GITHUB_URL, LINKEDIN_URL } from '../../libs/links'
 
 // The 3D room (three.js, the biggest part of the site) loads on its own,
 // so page text never waits for it; a spinner holds its place meanwhile
@@ -61,7 +62,7 @@ const HeroText = () => {
         <HStack mt={3} ml={-2} spacing={1} pointerEvents="auto">
           <IconButton
             as="a"
-            href="https://github.com/jhimy-michel"
+            href={GITHUB_URL}
             target="_blank"
             aria-label="GitHub"
             icon={<IoLogoGithub />}
@@ -71,7 +72,7 @@ const HeroText = () => {
           />
           <IconButton
             as="a"
-            href="https://www.linkedin.com/in/jhimy-michel/"
+            href={LINKEDIN_URL}
             target="_blank"
             aria-label="LinkedIn"
             icon={<IoLogoLinkedin />}

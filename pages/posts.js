@@ -14,7 +14,7 @@ import { getAllPosts } from '../libs/posts'
 import { TOPICS, topicById } from '../libs/topics'
 import { useHash } from '../libs/use-hash'
 
-const formatDate = (date) =>
+const formatDate = date =>
   new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -26,7 +26,7 @@ const formatDate = (date) =>
 const Posts = ({ posts }) => {
   const hash = useHash()
   const topic = topicById(hash.slice(1))
-  const shown = topic ? posts.filter((p) => p.topic === topic.id) : posts
+  const shown = topic ? posts.filter(p => p.topic === topic.id) : posts
 
   const cardBg = useColorModeValue('white', 'brand.night')
   const hoverBg = useColorModeValue('#FFFDF5', 'brand.surfaceHover')
@@ -69,12 +69,12 @@ const Posts = ({ posts }) => {
       <Text mb={5} color={mutedColor}>
         {topic
           ? `Posts about ${topic.label.toLowerCase()}.`
-          : 'Thoughts and learnings from tech, travel and life. Each book on the shelf is a topic.'}
+          : 'Thoughts and learnings from tech, travel and life. Each book on the shelf is a post.'}
       </Text>
 
       <Wrap spacing={2} mb={6}>
         <WrapItem>{chip('/posts', 'All', !topic)}</WrapItem>
-        {TOPICS.map((t) => (
+        {TOPICS.map(t => (
           <WrapItem key={t.id}>
             {chip(
               `/posts#${t.id}`,
@@ -86,7 +86,7 @@ const Posts = ({ posts }) => {
         ))}
       </Wrap>
 
-      {shown.map((post) => {
+      {shown.map(post => {
         const postTopic = topicById(post.topic)
         return (
           <Link

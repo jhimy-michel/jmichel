@@ -9,13 +9,13 @@ const slugs = () =>
   fs.existsSync(POSTS_DIR)
     ? fs
         .readdirSync(POSTS_DIR)
-        .filter((name) => name.endsWith('.mdx'))
-        .map((name) => name.replace(/\.mdx$/, ''))
+        .filter(name => name.endsWith('.mdx'))
+        .map(name => name.replace(/\.mdx$/, ''))
     : []
 
 export const getPostSlugs = slugs
 
-export const getPost = (slug) => {
+export const getPost = slug => {
   const file = path.join(POSTS_DIR, `${slug}.mdx`)
   if (!fs.existsSync(file)) return null
   const { content, data } = matter(fs.readFileSync(file, 'utf8'))
@@ -34,7 +34,7 @@ export const getPost = (slug) => {
 // Newest first
 export const getAllPosts = () =>
   slugs()
-    .map((slug) => getPost(slug).meta)
+    .map(slug => getPost(slug).meta)
     .sort((a, b) => {
       if (!a.date) return 1
       if (!b.date) return -1

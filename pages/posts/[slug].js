@@ -54,7 +54,7 @@ const BlogPost = ({ source, meta }) => {
 }
 
 export const getStaticPaths = async () => ({
-  paths: getPostSlugs().map((slug) => ({ params: { slug } })),
+  paths: getPostSlugs().map(slug => ({ params: { slug } })),
   fallback: false
 })
 

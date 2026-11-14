@@ -1,2 +1,7 @@
 node_modules
 .next
+# Build output, old files and post content stay as they are
+out
+archive
+content
+public

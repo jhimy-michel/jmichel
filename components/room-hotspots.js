@@ -82,9 +82,10 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
 
   return {
     // label: text or a function returning it. A spot opens `href` or,
-    // instead, runs `action(event)` when clicked
-    add(object, { label, href, external = false, action }) {
-      if (object) spots.push({ object, label, href, external, action })
+    // instead, runs `action(event)` when clicked. Other options are kept
+    // on the spot for the caller
+    add(object, { external = false, ...options }) {
+      if (object) spots.push({ object, external, ...options })
     },
     setEnabled(value) {
       enabled = value

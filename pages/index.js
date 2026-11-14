@@ -14,6 +14,7 @@ import Footer from '../components/footer'
 import CalendarBadge from '../components/calendar-badge'
 import Paragraph from '../components/paragraph'
 import { BioSection, BioYear } from '../components/bio'
+import { GITHUB_URL, LINKEDIN_URL } from '../libs/links'
 
 // The home page is the room (in the main layout). This is the About
 // content, shown in the panel that slides over it at /#about
@@ -104,7 +105,7 @@ const Home = () => {
         </Heading>
         <List>
           <ListItem>
-            <Link href="https://github.com/jhimy-michel" target="_blank">
+            <Link href={GITHUB_URL} target="_blank">
               <Button
                 variant="ghost"
                 color={socialColor}
@@ -116,10 +117,7 @@ const Home = () => {
             </Link>
           </ListItem>
           <ListItem>
-            <Link
-              href="https://www.linkedin.com/in/jhimy-michel/"
-              target="_blank"
-            >
+            <Link href={LINKEDIN_URL} target="_blank">
               <Button
                 variant="ghost"
                 color={socialColor}
