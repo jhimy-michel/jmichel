@@ -17,9 +17,10 @@ const ThemeToggleButton = () => {
       >
         <IconButton
           aria-label="Toggle theme"
-          bg={useColorModeValue('brand.teal', 'brand.orange')}
-          color={useColorModeValue('white', 'brand.night')}
-          _hover={{ bg: 'brand.rust', color: 'white' }}
+          // Quiet, like the nav links (the room's lamp is a switch too)
+          variant="ghost"
+          color={useColorModeValue('brand.teal', 'brand.orange')}
+          _hover={{ bg: useColorModeValue('blackAlpha.100', 'whiteAlpha.100') }}
           icon={useColorModeValue(<MoonIcon />, <SunIcon />)}
           onClick={toggleColorMode}
         />

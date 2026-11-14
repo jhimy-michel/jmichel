@@ -1,6 +1,8 @@
 # Ideas for the Website
 
-Brainstorm from 2026-11-12, to review later. Nothing here is built yet. ⭐ marks the ideas recommended to start with.
+Brainstorm from 2026-11-12, to review later. ⭐ marks the ideas recommended to start with.
+
+**Built so far (2026-11-13):** the room fills the screen on every page and pages open in a panel over it. Clickable objects: bookshelf → Posts (each book is a topic: Tech, Travel, Life), laptop → GitHub, mug → About. Pixel Perrito logo and tab icon. Not committed yet at the time of writing.
 
 Context: the home page hero is Perrito's room. It is a voxel room corner with the dog in his armchair, and it already follows the visitor's local time, the season, and day/night. The site is a static export on GitHub Pages, so ideas marked **(needs backend)** need a small serverless function, for example a Cloudflare Worker.
 
@@ -39,6 +41,38 @@ Context: the home page hero is Perrito's room. It is a voxel room corner with th
 ### Holiday events
 - Oruro Carnival costume, Swiss National Day fireworks outside the window, a Christmas tree, a Halloween pumpkin, a party hat on your birthday.
 - Gives people a reason to come back and see what's new.
+
+### Animate Perrito further ⭐
+Brainstorm from 2026-11-13. Today he types, takes a coffee break every 20–40 s, blinks, bobs his head and falls asleep at night (laptop closes, head nods, "Z"s rise). Movable parts in the model: `head`, `arm_L`, `arm_R`, `eyelids`, `laptop_lid`, `mug`. The body is one piece, so a tail, ears or legs first need cutting out as separate parts in `archive/assets/perrito.blend`.
+
+**Reacts to the visitor (head only, cheap)**
+- ⭐ **Looks at what you open.** Shelf zoom: he turns to the bookshelf. About panel: he looks toward the panel, as if introducing you.
+- ⭐ **Eyes follow the cursor.** The head turns slightly toward the mouse, then goes back to reading after a few idle seconds.
+- ⭐ **Click to pet.** Happy head wiggle, double blink, "Woof · Guau · Wuff" speech bubble.
+- **Startle.** Several fast clicks make him jump, spill some coffee and give you a look.
+
+**Idle life (random, every 30–90 s, so he doesn't loop one motion)**
+- ⭐ **Stretch:** arms up, head back, eyes closed, back to typing.
+- ⭐ **Thinking pause:** stops typing, tilts his head, taps one paw, then a fast "aha!" typing burst.
+- **Yawn,** mostly in the evening before falling asleep.
+- **Looks out the window,** especially when it snows or at sunset.
+
+**Time of day (builds on the existing day/night system)**
+- **Waking up:** eyes open slowly, stretch, laptop opens, first coffee, instead of switching straight from asleep to awake.
+- **Coffee rhythm:** more sips in the morning, fewer at night.
+- **Deep sleep:** after 2 am the arms slip off the laptop and the "Z"s grow.
+
+**Needs a Blender job first**
+- ⭐ **Tail wag:** the strongest "alive" signal for a dog. Wags harder on hover or when the page changes.
+- **Ear twitches,** and floppy ears that bounce when he's startled.
+- **Legs swinging** in the chair while he reads.
+
+**Bigger**
+- Soft sounds behind a mute toggle (typing clicks, a slurp, snoring). See "Optional cozy sound" below.
+- Holiday outfits (see Holiday events above).
+- Typing speed from your real GitHub activity (see "Perrito mirrors your real world").
+
+**Recommended order:** 1. look at what you open + follow the cursor, 2. click to pet, 3. stretch + thinking pause as random idles (about half a day for 1–3, no new 3D work). 4. tail wag after cutting the tail out in Blender.
 
 ---
 
@@ -95,7 +129,7 @@ There is no server and no API cost: the model runs on the visitor's GPU through 
 - **Coral underlines in light mode.** Light mode is all ink; coral section underlines ("Bio", "I love"…) would add warmth.
 - **Rename colour tokens.** `brand.teal` now holds ink blue. Rename tokens by role (`brand.primary`, `brand.accent`, `brand.surface`…) across the site.
 - **Bigger mug.** The coffee mug looks small since the camera zoomed out for the room. It's quick to scale up in `archive/assets/perrito.blend`.
-- **Click to pet.** A hop and a "Woof · Guau · Wuff" speech bubble.
+- **Click to pet.** A hop and a "Woof · Guau · Wuff" speech bubble. (Now part of "Animate Perrito further".)
 - **More dog moves.** Ear wiggles, and typing paws that fumble when he's sleepy.
 - **Wall clock.** Shows the real time and explains the day/night behaviour at a glance.
 - **Sleeping cat** curled up on the rug, sometimes flicking its tail.
@@ -104,9 +138,14 @@ There is no server and no API cost: the model runs on the visitor's GPU through 
 
 ## 6. Open housekeeping (not ideas, still to do)
 
-- [ ] **Commit the current work** (calendar badge, split dog model + animations, camera/centering, room + cozy details, Night window palette), ideally in a few logical commits.
-- [ ] **Security updates:** `next` has a critical advisory, so update to 16.4.x with `@next/mdx` and `eslint-config-next`. Also run `npm audit fix` and upgrade `next-mdx-remote` to v6.
-- [ ] **Prettier config typo:** `arrowPattern` should be `arrowParens`.
-- [ ] **Remove `.DS_Store` from git** and add it to `.gitignore`.
-- [ ] **CI on Node 22** (Node 20 reached end-of-life).
-- [ ] **Phone performance.** The scene now has shadows and ~150 meshes. If it's slow, make the lamp's shadows cheaper, or turn them off on small screens.
+- [ ] **Commit the 2026-11-13 work** (room navigation, panels + bookshelf + posts, logo + tab icon, performance + cleanup, housekeeping), ideally in a few logical commits.
+- [ ] **One Prettier format pass.** Now that `arrowParens` works, 12 files differ from the style (`x => x` vs `(x) => x`). Do it as its own format-only commit.
+- [ ] **Test in a real browser:** hover/click shelf, topic books, laptop, mug; panels (✕, Esc, back button); glides; light mode; a real phone.
+- [ ] **Topic book on post pages:** while reading a post, its topic's book should stay pulled out of the shelf.
+- [ ] **Social preview image:** links still show the personal photo (`jhimy_michel.png`); a Perrito card would match the site.
+- [ ] **Dev-only audit warnings:** 8 moderate (`minimatch` in the lint tooling). Production dependencies report 0.
+- [x] ~~Security updates~~: `next` is on 16.4.6, `next-mdx-remote` on v6 (2026-11-13).
+- [x] ~~Prettier config typo~~: `arrowPattern` → `arrowParens`.
+- [x] ~~Remove `.DS_Store` from git~~ and add it to `.gitignore`.
+- [x] ~~CI on Node 22~~.
+- [x] ~~Phone performance~~: pixel ratio capped, shadows redrawn every 3rd frame, no lamp shadow on phones, 3D loads after the page text.

@@ -18,7 +18,7 @@ const colors = {
 }
 
 const styles = {
-  global: (props) => ({
+  global: props => ({
     body: {
       bg: mode(colors.brand.cream, colors.brand.night)(props),
       color: mode('#2A2F3A', '#D8DCE6')(props),
@@ -29,11 +29,11 @@ const styles = {
 
 const components = {
   Heading: {
-    baseStyle: (props) => ({
+    baseStyle: props => ({
       color: mode(colors.brand.tealDeep, colors.brand.sand)(props)
     }),
     variants: {
-      'section-title': (props) => ({
+      'section-title': props => ({
         textDecoration: 'underline',
         fontSize: 20,
         textUnderlineOffset: 6,
@@ -52,7 +52,7 @@ const components = {
           )(props)
         }
       }),
-      'page-title': (props) => ({
+      'page-title': props => ({
         fontSize: ['2xl', '3xl', '4xl'],
         fontWeight: 'bold',
         lineHeight: 1.2,
@@ -66,7 +66,7 @@ const components = {
     }
   },
   Link: {
-    baseStyle: (props) => ({
+    baseStyle: props => ({
       color: mode(colors.brand.teal, colors.brand.orange)(props),
       textUnderlineOffset: 3,
       transition: 'all 0.3s ease-in-out',
@@ -78,7 +78,7 @@ const components = {
   },
   Button: {
     variants: {
-      glass: (props) => ({
+      glass: props => ({
         bg: mode('whiteAlpha.500', 'whiteAlpha.100')(props),
         backdropFilter: 'blur(10px)',
         borderRadius: 'lg',
@@ -87,7 +87,7 @@ const components = {
           bg: mode('whiteAlpha.600', 'whiteAlpha.200')(props)
         }
       }),
-      primary: (props) => ({
+      primary: props => ({
         bg: mode(colors.brand.teal, colors.brand.orange)(props),
         color: 'white',
         _hover: {
@@ -96,7 +96,7 @@ const components = {
           boxShadow: 'lg'
         }
       }),
-      outline: (props) => ({
+      outline: props => ({
         border: '2px solid',
         borderColor: mode(colors.brand.teal, colors.brand.orange)(props),
         color: mode(colors.brand.teal, colors.brand.orange)(props),
@@ -107,7 +107,7 @@ const components = {
     }
   },
   Card: {
-    baseStyle: (props) => ({
+    baseStyle: props => ({
       bg: mode('whiteAlpha.900', 'whiteAlpha.100')(props),
       borderRadius: 'lg',
       padding: 6,

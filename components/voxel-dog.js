@@ -1,18 +1,39 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils'
 import Router from 'next/router'
 import { Box, useColorMode, useColorModeValue } from '@chakra-ui/react'
 import { DogSpinner, DogContainer } from './voxel-dog-loader'
 import { loadGLTFModel } from '../libs/model'
 import { createHotspots } from './room-hotspots'
 import { SHEET_BELOW, SHEET_HEIGHT } from './panel'
-import { TOPICS } from '../libs/topics'
+import { topicById } from '../libs/topics'
+import { heroInset } from '../libs/layout'
 
 const GITHUB_URL = 'https://github.com/jhimy-michel'
 const GLIDE_MS = 900
 const NAVBAR_HEIGHT = 64
 const SHADOW_EVERY = 3 // redraw shadows every Nth frame
+// Filmic tone mapping darkens a little: lift the lamp-lit night more
+// than full daylight, which would wash out
+const TONE_EXPOSURE = { night: 1.25, day: 0.65 }
+const FLOOR_BOUNCE = 0x5e3b26 // ambient light bounced up from the floor
+const LAMP_FILL = 0.3 // wall fill light, share of the lamp's intensity
+// Theme switch moments, in ms after the toggle: the lamp flickers on,
+// the fairy lights come on one by one, Perrito glances at the lamp
+const FLICKER = [80, 180, 260, 420] // on/off edges while switching on
+const SCREEN_LIGHT = new THREE.Color(0xfff4e0)
+const SCREEN_DARK = new THREE.Color(0x9fc8ff)
+const CASCADE = { start: 300, step: 35, fade: 200 }
+const GLANCE = { in: 400, hold: 1600, out: 600 }
+
+// The armchair's two blues in the model's 256x1 colour palette (only the
+// chair uses them), repainted in code: [palette index, new colour]
+const CHAIR_COLORS = [
+  [136, 0x3a7556], // dark green
+  [137, 0x2b5c42] // dark green in shade
+]
 
 function easeOutCirc(x) {
   return Math.sqrt(1 - Math.pow(x - 1, 4))
@@ -51,7 +72,7 @@ function currentHour() {
 }
 
 // Perrito sleeps between 22:00 and 07:00 local time
-const isSleepTime = (hour) => hour >= 22 || hour < 7
+const isSleepTime = hour => hour >= 22 || hour < 7
 
 // Light mode follows the real clock: keyframes by hour, interpolated
 const NIGHT = {
@@ -124,7 +145,7 @@ function lightModeAt(hour) {
   const a = DAY_KEYS[i]
   const b = DAY_KEYS[i + 1]
   const t = (hour - a.h) / (b.h - a.h)
-  const mix = (key) => ({
+  const mix = key => ({
     color: mixColor(a[key][0], b[key][0], t),
     intensity: a[key][1] + (b[key][1] - a[key][1]) * t
   })
@@ -147,12 +168,22 @@ function skyLightPosition(hour) {
   )
 }
 
-function getLightTarget({ colorMode, hour, season, asleep }) {
+// Hour the room is shown at: light mode is always daytime and dark mode
+// always night, each following the real clock within its range. (Sleep
+// still follows the real clock: late visitors in light mode see a nap)
+function sceneHour(colorMode, hour) {
+  if (colorMode === 'light') return THREE.MathUtils.clamp(hour, 9, 17.5)
+  return hour >= 6 && hour < 21 ? 22.5 : hour
+}
+
+function getLightTarget({ colorMode, hour: realHour, season, asleep }) {
+  const hour = sceneHour(colorMode, realHour)
   let target
+  let daylight = 0
   if (colorMode === 'light') {
     target = lightModeAt(hour)
     const tint = SEASONAL_SUN[season]
-    const daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI))
+    daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI))
     if (tint) {
       target.directional.color = mixColor(
         target.directional.color,
@@ -169,6 +200,8 @@ function getLightTarget({ colorMode, hour, season, asleep }) {
     target.lampGlow *= 0.5
   }
   target.skyPosition = skyLightPosition(hour)
+  target.exposure =
+    TONE_EXPOSURE.night + (TONE_EXPOSURE.day - TONE_EXPOSURE.night) * daylight
   target.sleep = asleep ? 1 : 0
   target.zColor = colorMode === 'light' ? 0x1d5a66 : 0xf2e5bf
   target.sky = skyAt(hour)
@@ -227,10 +260,104 @@ const SKY_FRAGMENT = `
   uniform float uNight;
   uniform float uAspect;
   uniform float uTime;
-  uniform float uFall; // 0 nothing, 1 snow, 2 leaves
+  uniform float uFall; // 0 nothing, 1 snow
+  uniform float uPlace; // 0 Zurich, 1 La Paz (blends in between)
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  // Triangle peak: 1 at x = c, 0 at distance w
+  float peak(float x, float c, float w) {
+    return max(0.0, 1.0 - abs(x - c) / w);
+  }
+
+  // Scenery lit by the sky: darker and bluer at night
+  vec3 lit(vec3 c) {
+    return mix(c, c * 0.28 + uTop * 0.12, uNight);
+  }
+
+  // Snow stays pale in the moonlight
+  vec3 snow() {
+    return mix(vec3(0.95, 0.96, 0.98), vec3(0.45, 0.52, 0.66), uNight);
+  }
+
+  // Warm window lights at night: a random share of cells, twinkling
+  float cityLight(vec2 p, float density, float share) {
+    vec2 cell = floor(p * density);
+    vec2 f = fract(p * density) - 0.5;
+    float h = hash(cell);
+    float on = step(1.0 - share, h);
+    float flick = 0.75 + 0.25 * sin(uTime * 0.03 + h * 50.0);
+    return on * smoothstep(0.3, 0.05, length(f)) * uNight * flick;
+  }
+
+  // Zurich: Alps with a sharp Matterhorn-like peak, the lake below with
+  // a shimmer, a green shore on the left and lights along it at night
+  vec3 zurich(vec2 p, vec3 col) {
+    float x = p.x;
+    float alps = 0.36
+      + 0.12 * peak(x, 0.35, 0.3) + 0.1 * peak(x, 0.75, 0.25)
+      + 0.32 * peak(x, 1.25, 0.22) + 0.14 * peak(x, 1.65, 0.3)
+      + 0.015 * sin(x * 37.0);
+    vec3 rock = mix(uBottom, vec3(0.32, 0.38, 0.5), 0.6);
+    if (p.y < alps) {
+      col = lit(rock);
+      if (p.y > alps - 0.07 && alps > 0.42) col = snow();
+    }
+    // Lake: the sky's colour, darker, with drifting glints
+    if (p.y < 0.22) {
+      vec3 water = mix(uBottom, uTop, 0.6) * 0.75;
+      float glint = step(0.92, sin(x * 60.0 + uTime * 0.05 + sin(p.y * 90.0) * 2.0))
+        * smoothstep(0.0, 0.22, p.y);
+      col = lit(water) + glint * mix(0.25, 0.1, uNight);
+    }
+    // Green shore with a few houses on the left
+    float shore = 0.24 - x * 0.18 + 0.02 * sin(x * 25.0);
+    if (p.y < shore && x < 1.2) {
+      col = lit(vec3(0.24, 0.45, 0.28));
+      col += vec3(1.0, 0.8, 0.45) * cityLight(p, 30.0, 0.25);
+    }
+    return col;
+  }
+
+  // La Paz: Illimani's three snowy summits above the city, which climbs
+  // the hillsides in brick and ochre houses. Thousands of lights at night
+  // and a teleferico cabin gliding along its cable
+  vec3 laPaz(vec2 p, vec3 col) {
+    float x = p.x;
+    float illimani = 0.34
+      + 0.36 * peak(x, 1.2, 0.55) + 0.05 * peak(x, 0.95, 0.1)
+      + 0.06 * peak(x, 1.45, 0.12) + 0.01 * sin(x * 41.0);
+    vec3 rock = mix(uBottom, vec3(0.36, 0.38, 0.48), 0.6);
+    if (p.y < illimani) {
+      col = lit(rock);
+      if (p.y > 0.47 + 0.03 * sin(x * 13.0)) col = snow();
+    }
+    // City bowl: steep hillsides on both sides, lower in the middle
+    float hills = 0.12 + 0.3 * smoothstep(0.9, 0.0, x)
+      + 0.16 * smoothstep(1.3, 1.95, x) + 0.012 * sin(x * 30.0);
+    if (p.y < hills) {
+      vec2 cell = floor(p * vec2(34.0, 40.0));
+      float h = hash(cell);
+      vec3 house = h < 0.33 ? vec3(0.66, 0.33, 0.24)
+        : h < 0.66 ? vec3(0.78, 0.55, 0.36) : vec3(0.58, 0.46, 0.38);
+      col = lit(house);
+      col += vec3(1.0, 0.78, 0.4) * cityLight(p, 40.0, 0.55) * 1.2;
+    }
+    // Teleferico cable and a red cabin travelling along it
+    vec2 a = vec2(0.05, 0.5);
+    vec2 b = vec2(uAspect - 0.05, 0.3);
+    vec2 ab = b - a;
+    float t = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0);
+    float cable = length(p - (a + ab * t));
+    col = mix(col, vec3(0.1), smoothstep(0.004, 0.0015, cable));
+    float travel = fract(uTime * 0.0015);
+    vec2 cabin = a + ab * travel - vec2(0.0, 0.025);
+    vec2 d = abs(p - cabin);
+    if (d.x < 0.022 && d.y < 0.018) col = lit(vec3(0.8, 0.15, 0.15))
+      + vec3(1.0, 0.85, 0.5) * uNight * 0.6;
+    return col;
   }
 
   void main() {
@@ -250,17 +377,13 @@ const SKY_FRAGMENT = `
     float glow = smoothstep(uDiscSize * 4.0, 0.0, d) * 0.3;
     col = mix(col + uDiscColor * glow, uDiscColor, disc);
 
-    // Mountains with snowy peaks
-    float x = p.x;
-    float ridge = 0.2 + 0.16 * (1.0 - abs(fract(x * 0.9 + 0.15) * 2.0 - 1.0))
-      + 0.03 * sin(x * 11.0);
-    vec3 rock = mix(uBottom, vec3(0.08, 0.1, 0.16), 0.55);
-    if (vUv.y < ridge) {
-      col = rock;
-      if (vUv.y > ridge - 0.045 && ridge > 0.3) col = mix(rock, vec3(0.92), 0.75);
-    }
+    // The view: Zurich or La Paz, crossfading while switching
+    vec3 view = col;
+    if (uPlace < 0.999) view = zurich(p, col);
+    if (uPlace > 0.001) view = mix(view, laPaz(p, col), uPlace);
+    col = view;
 
-    // Snow or leaves drifting down outside
+    // Snow drifting down outside in winter
     if (uFall > 0.5) {
       for (int i = 0; i < 3; i++) {
         float layer = float(i);
@@ -271,16 +394,10 @@ const SKY_FRAGMENT = `
         vec2 id = floor(q);
         vec2 local = fract(q) - 0.5;
         float r = hash(id + layer * 13.0);
-        if (r > 0.55) {
+        if (r > 0.68) {
           local -= vec2(r - 0.75, hash(id.yx) - 0.5) * 0.6;
-          if (uFall < 1.5) {
-            float flake = smoothstep(0.09 - layer * 0.02, 0.0, length(local));
-            col = mix(col, vec3(1.0), flake * 0.9);
-          } else {
-            float leaf = step(length(local * vec2(1.0, 2.0)), 0.12);
-            vec3 leafColor = mix(vec3(0.8, 0.38, 0.25), vec3(0.85, 0.64, 0.25), r);
-            col = mix(col, leafColor, leaf);
-          }
+          float flake = smoothstep(0.09 - layer * 0.02, 0.0, length(local));
+          col = mix(col, vec3(1.0), flake * 0.9);
         }
       }
     }
@@ -304,13 +421,15 @@ function buildWindow({ unit, centerZ, bottom, width, height, season }) {
       uNight: { value: 0 },
       uAspect: { value: width / height },
       uTime: { value: 0 },
-      uFall: { value: season === 'winter' ? 1 : season === 'autumn' ? 2 : 0 }
+      uFall: { value: season === 'winter' ? 1 : 0 },
+      uPlace: { value: 0 }
     }
   })
   const pane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material)
   pane.rotation.y = Math.PI / 2 // face into the room (+x)
   pane.position.set(unit * 0.006, bottom + height / 2, centerZ)
   group.add(pane)
+  group.userData.pane = pane
 
   const frameMaterial = new THREE.MeshStandardMaterial({ color: 0xece0c8 })
   const bar = unit * 0.035
@@ -372,145 +491,441 @@ function buildRug(radius, unit) {
   return group
 }
 
-// Potted monstera: terracotta pot, soil, stems and big leaves. Returns the
-// leaves group so it can sway. Origin at the bottom centre of the pot
+// Repaint palette cells of the model's texture (a 256x1 strip of colours)
+function repaintPalette(texture, cells) {
+  const { image } = texture
+  const canvas = document.createElement('canvas')
+  canvas.width = image.width
+  canvas.height = image.height
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(image, 0, 0)
+  for (const [index, color] of cells) {
+    ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`
+    ctx.fillRect(index, 0, 1, canvas.height)
+  }
+  texture.image = canvas
+  texture.needsUpdate = true
+}
+
+// World bounds of the vertices of `mesh` painted with the given palette
+// cells (the chair inside the body mesh)
+function paletteBounds(mesh, cells) {
+  const bounds = new THREE.Box3()
+  const { position, uv } = mesh.geometry.attributes
+  const point = new THREE.Vector3()
+  const width = mesh.material.map.image.width
+  for (let i = 0; i < position.count; i++) {
+    if (!cells.includes(Math.floor(uv.getX(i) * width))) continue
+    point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld)
+    bounds.expandByPoint(point)
+  }
+  return bounds
+}
+
+// Aymara aguayo (Bolivian woven cloth) as pixel art: wide solid bands
+// separated by thin stripes and narrow bands of diamonds and zigzags.
+// Rows run top to bottom; each row is drawn across the full width
+function drawAguayo(ctx, size) {
+  const c = {
+    red: '#b3122e',
+    pink: '#e0457b',
+    orange: '#f28c28',
+    yellow: '#f5c518',
+    green: '#1e8a4c',
+    blue: '#1f4e9c',
+    purple: '#5b2a86',
+    black: '#1a1a1a',
+    white: '#f2e5bf'
+  }
+  const row = (y, color) => {
+    ctx.fillStyle = color
+    ctx.fillRect(0, y, size, 1)
+  }
+  const dot = (x, y, color) => {
+    ctx.fillStyle = color
+    ctx.fillRect(x, y, 1, 1)
+  }
+  // Diamonds: 5 rows high, one every 6 pixels
+  const diamonds = (y0, bg, fg, centre) => {
+    for (let y = 0; y < 5; y++) row(y0 + y, bg)
+    for (let x0 = 0; x0 < size; x0 += 6) {
+      for (let y = 0; y < 5; y++) {
+        const half = 2 - Math.abs(y - 2)
+        for (let dx = -half; dx <= half; dx++) {
+          dot((x0 + 3 + dx + size) % size, y0 + y, fg)
+        }
+      }
+      dot(x0 + 3, y0 + 2, centre)
+    }
+  }
+  // Zigzag: 3 rows high, period 4
+  const zigzag = (y0, bg, fg) => {
+    for (let y = 0; y < 3; y++) row(y0 + y, bg)
+    for (let x = 0; x < size; x++) {
+      const y = [0, 1, 2, 1][x % 4]
+      dot(x, y0 + y, fg)
+    }
+  }
+  const bands = [
+    [0, 6, c.red],
+    [6, 1, c.yellow],
+    [7, 1, c.green]
+  ]
+  for (const [y0, h, color] of bands)
+    for (let y = y0; y < y0 + h; y++) row(y, color)
+  diamonds(8, c.blue, c.yellow, c.pink)
+  row(13, c.green)
+  row(14, c.yellow)
+  for (let y = 15; y < 21; y++) row(y, c.pink)
+  row(21, c.orange)
+  row(22, c.black)
+  zigzag(23, c.black, c.white)
+  row(26, c.black)
+  row(27, c.orange)
+  for (let y = 28; y < 32; y++) row(y, c.purple)
+}
+
+// Aguayo throw blanket folded over the front of an armrest: a piece on
+// top, one hanging down the front and one down the outside. Built for
+// the left armrest (outside at -x, front at +z); origin at the arm's top
+// front outer corner
+function buildThrow(unit, armWidth, length, drop) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 32
+  drawAguayo(canvas.getContext('2d'), 32)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.encoding = THREE.sRGBEncoding
+  const material = new THREE.MeshStandardMaterial({ map: texture })
+
+  // Pieces given by their min/max corners. A small gap `e` keeps every
+  // face off the armrest and off the other pieces: faces sharing a plane
+  // flicker (z-fighting)
+  const group = new THREE.Group()
+  const t = unit * 0.02 // thickness
+  const e = t * 0.15
+  const piece = ([x0, y0, z0], [x1, y1, z1]) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0),
+      material
+    )
+    mesh.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    mesh.castShadow = mesh.receiveShadow = true
+    group.add(mesh)
+  }
+  // On top, covering the edges of the two hanging pieces
+  piece([-t - 2 * e, e, -length], [armWidth + e, e + t, t + 2 * e])
+  // Down the front
+  piece([-t - e, e - drop, e], [armWidth, e, e + t])
+  // Down the outside
+  piece([-t - e, e - drop * 0.8, -length + e], [-e, e, 0])
+  return group
+}
+
+// Monstera leaf drawn as a voxel grid ('#' = cube): heart shape with the
+// classic holes. Rows run from the stem (top) to the tip (bottom)
+const MONSTERA_LEAF = [
+  '..###..',
+  '.#####.',
+  '##.#.##',
+  '#######',
+  '#.###.#',
+  '#######',
+  '.##.##.',
+  '..###..',
+  '...#...'
+]
+
+// One leaf as a single merged mesh (one draw call), lying flat and
+// pointing along +x from its stem end at the origin
+function buildMonsteraLeaf(cell, color) {
+  const boxes = []
+  MONSTERA_LEAF.forEach((row, i) => {
+    for (let j = 0; j < row.length; j++) {
+      if (row[j] !== '#') continue
+      const box = new THREE.BoxGeometry(cell, cell * 0.5, cell)
+      box.translate((i + 0.5) * cell, 0, (j - (row.length - 1) / 2) * cell)
+      boxes.push(box)
+    }
+  })
+  const leaf = new THREE.Mesh(
+    mergeBufferGeometries(boxes),
+    new THREE.MeshStandardMaterial({ color })
+  )
+  leaf.castShadow = leaf.receiveShadow = true
+  return leaf
+}
+
+// Potted voxel monstera: stepped terracotta pot on a saucer, stems
+// leaning out with drooping voxel leaves. Returns the leaves group so it
+// can sway. Origin at the bottom centre of the pot
 function buildPlant(unit) {
   const group = new THREE.Group()
   const u = unit
-  addBox(group, u * 0.2, u * 0.18, u * 0.2, 0xb5653f, 0, u * 0.09, 0)
-  addBox(group, u * 0.23, u * 0.035, u * 0.23, 0x9c5232, 0, u * 0.18, 0)
-  addBox(group, u * 0.17, u * 0.01, u * 0.17, 0x3d2b1f, 0, u * 0.195, 0)
+  addBox(group, u * 0.24, u * 0.015, u * 0.24, 0x9c5232, 0, u * 0.0075, 0)
+  addBox(group, u * 0.17, u * 0.06, u * 0.17, 0xa85b39, 0, u * 0.045, 0)
+  addBox(group, u * 0.2, u * 0.1, u * 0.2, 0xb5653f, 0, u * 0.125, 0)
+  addBox(group, u * 0.23, u * 0.035, u * 0.23, 0xc77a52, 0, u * 0.19, 0)
+  addBox(group, u * 0.18, u * 0.01, u * 0.18, 0x3d2b1f, 0, u * 0.205, 0)
   const leaves = new THREE.Group()
   leaves.position.y = u * 0.2
   group.add(leaves)
-  const greens = [0x2f7a4f, 0x3a8c5c, 0x276b44]
-  const count = 7
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + 0.3
-    const height = u * (0.2 + 0.12 * ((i * 5) % 3))
-    const reach = u * (0.08 + 0.03 * (i % 2))
+
+  const cell = u * 0.022
+  const greens = [0x2f7a4f, 0x3a8c5c, 0x276b44, 0x4a9a63]
+  // [turn around the pot, stem length, lean out, leaf droop, size].
+  // Turns stay within a half circle around +x: the plant stands against
+  // a wall at -x, so no leaf may reach behind the pot. Positive turns
+  // lean towards the window (-z), so they stay small
+  const stems = [
+    [-1.4, 0.3, 0.5, 0.6, 0.9],
+    [-0.9, 0.42, 0.35, 0.5, 1.1],
+    [-0.4, 0.26, 0.65, 0.7, 0.85],
+    [0, 0.48, 0.2, 0.45, 1.1],
+    [0.35, 0.34, 0.5, 0.6, 1],
+    [-1.55, 0.4, 0.3, 0.5, 0.95],
+    [0.1, 0.2, 0.15, 0.3, 0.75]
+  ]
+  stems.forEach(([turn, length, lean, droop, size], i) => {
     const stem = new THREE.Group()
-    stem.rotation.y = angle
+    stem.rotation.y = turn
+    stem.rotation.z = -lean // lean outwards (+x)
     leaves.add(stem)
-    // Stem leaning out, leaf at its tip tilted outwards
     addBox(
       stem,
-      u * 0.015,
-      height,
-      u * 0.015,
+      u * 0.014,
+      u * length,
+      u * 0.014,
       0x2a5e3a,
-      reach / 2,
-      height / 2,
+      0,
+      (u * length) / 2,
       0
     )
-    const leaf = addBox(
-      stem,
-      u * 0.17,
-      u * 0.018,
-      u * 0.12,
-      greens[i % greens.length],
-      reach + u * 0.07,
-      height,
-      0
-    )
-    leaf.rotation.z = -0.35
-  }
+    const leaf = buildMonsteraLeaf(cell * size, greens[i % greens.length])
+    leaf.position.y = u * length
+    // Undo the lean, then droop the tip down and give it a little twist
+    leaf.rotation.set(0.15 * ((i % 3) - 1), 0, lean - droop)
+    stem.add(leaf)
+  })
   return { group, leaves }
 }
 
-// Wall shelf with books and a tiny succulent. Built facing +z with its
-// back at z = 0; origin at the shelf board's centre. The first books are
-// the post topics (returned by id so they can be clicked and pulled out),
-// the rest are decoration
-function buildShelf(unit) {
+// Small pixel-art pictures for the photo frames until real photos exist:
+// [sky, far, near, accent] drawn as simple landscapes
+const FRAME_PICTURES = [
+  ['#8fc4e8', '#f2f4f7', '#7a8aa3', '#c97b4a'], // snowy mountain
+  ['#f5a35c', '#e5735a', '#2f4f6b', '#ffd27a'], // sunset over the sea
+  ['#a7d3e8', '#4f7a5a', '#3a6f9a', '#f2e5bf'] // lake and hills
+]
+
+function buildPictureTexture([sky, far, near, accent], kind) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 12
+  canvas.height = 15
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = sky
+  ctx.fillRect(0, 0, 12, 15)
+  if (kind === 0) {
+    // Mountain with a snowy top
+    for (let y = 4; y < 15; y++) {
+      const half = y - 3
+      ctx.fillStyle = y < 7 ? far : near
+      ctx.fillRect(6 - half, y, half * 2, 1)
+    }
+    ctx.fillStyle = accent
+    ctx.fillRect(0, 13, 12, 2)
+  } else if (kind === 1) {
+    // Sun setting into the sea
+    ctx.fillStyle = far
+    ctx.fillRect(0, 6, 12, 3)
+    ctx.fillStyle = accent
+    ctx.fillRect(4, 5, 4, 3)
+    ctx.fillStyle = near
+    ctx.fillRect(0, 9, 12, 6)
+  } else {
+    // Hills over a lake
+    ctx.fillStyle = far
+    ctx.fillRect(0, 7, 12, 3)
+    ctx.fillRect(2, 6, 5, 1)
+    ctx.fillStyle = near
+    ctx.fillRect(0, 10, 12, 5)
+    ctx.fillStyle = accent
+    ctx.fillRect(7, 11, 3, 1)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.magFilter = THREE.NearestFilter
+  texture.encoding = THREE.sRGBEncoding
+  return texture
+}
+
+// Small hash for stable per-post variety (book height and thickness)
+function hashString(text) {
+  let h = 0
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+const MAX_SHELF_POSTS = 12
+
+// Two-board wall bookcase. Top board: one book per post, coloured by
+// topic, padded with a few plain books so it never looks empty. Lower
+// board: photo frames and a little camera. Built facing +z with its back
+// at z = 0; origin at the lower board's centre. Returns the post books
+// (to click and pull out) and the photo frames group
+function buildShelf(unit, posts) {
   const group = new THREE.Group()
   const u = unit
-  const width = u * 0.42
+  const width = u * 0.5
   const depth = u * 0.1
-  addBox(group, width, u * 0.022, depth, 0x7d5238, 0, 0, depth / 2)
-  addBox(
-    group,
-    u * 0.02,
-    u * 0.06,
-    u * 0.02,
-    0x5e3b26,
-    -width * 0.38,
-    -u * 0.04,
-    u * 0.02
-  )
-  addBox(
-    group,
-    u * 0.02,
-    u * 0.06,
-    u * 0.02,
-    0x5e3b26,
-    width * 0.38,
-    -u * 0.04,
-    u * 0.02
-  )
-  const topicSizes = [
-    [0.034, 0.14],
-    [0.03, 0.125],
-    [0.032, 0.132]
-  ]
-  const books = [
-    ...TOPICS.map((topic, i) => [
-      ...topicSizes[i % topicSizes.length],
-      new THREE.Color(topic.color).getHex(),
-      topic.id
-    ]),
-    [0.026, 0.11, 0xe9dcc3],
-    [0.022, 0.1, 0xfd8b51]
-  ]
-  const topicBooks = {}
-  let x = -width * 0.42
-  for (const [w, h, color, topicId] of books) {
-    const book = addBox(
+  const gap = u * 0.16 // between the two boards
+  const wood = 0x7d5238
+  const board = u * 0.022
+  addBox(group, width, board, depth, wood, 0, 0, depth / 2)
+  addBox(group, width, board, depth, wood, 0, gap, depth / 2)
+  // Side panels holding both boards
+  for (const side of [-1, 1]) {
+    addBox(
       group,
-      u * w,
-      u * h,
-      u * 0.075,
-      color,
-      x + (u * w) / 2,
-      u * (0.011 + h / 2),
+      u * 0.02,
+      gap + board * 2,
+      depth,
+      0x5e3b26,
+      side * (width / 2 + u * 0.01),
+      gap / 2,
       depth / 2
     )
-    if (topicId) topicBooks[topicId] = { mesh: book, restZ: book.position.z }
-    x += u * w + u * 0.004
   }
-  // A leaning book and a small potted succulent on the right
+
+  // Top board: post books, then plain filler books
+  const postBooks = []
+  const shelfTop = gap + board / 2
+  let x = -width / 2 + u * 0.012
+  const addBook = (w, h, color) => {
+    const book = addBox(
+      group,
+      w,
+      h,
+      u * 0.075,
+      color,
+      x + w / 2,
+      shelfTop + h / 2,
+      depth / 2
+    )
+    x += w + u * 0.004
+    return book
+  }
+  for (const post of posts.slice(0, MAX_SHELF_POSTS)) {
+    const h = hashString(post.slug)
+    const topic = topicById(post.topic)
+    const color = new THREE.Color(topic ? topic.color : '#9e8670').getHex()
+    const mesh = addBook(
+      u * (0.026 + (h % 4) * 0.003),
+      u * (0.1 + ((h >> 3) % 4) * 0.006),
+      color
+    )
+    postBooks.push({ mesh, restZ: mesh.position.z, ...post })
+  }
+  const fillers = [
+    [0.024, 0.092, 0xe9dcc3],
+    [0.03, 0.108, 0xfd8b51],
+    [0.022, 0.096, 0x6d5a9c],
+    [0.028, 0.102, 0xd9a441]
+  ]
+  const room = width / 2 - u * 0.09 // leave space for the leaning book
+  for (const [w, h, color] of fillers) {
+    if (postBooks.length + 2 > MAX_SHELF_POSTS || x + u * w > room) break
+    addBook(u * w, u * h, color)
+  }
   const leaning = addBox(
     group,
     u * 0.026,
-    u * 0.12,
+    u * 0.1,
     u * 0.075,
-    0x6d5a9c,
-    x + u * 0.04,
-    u * 0.068,
+    0x2f6b4f,
+    x + u * 0.033,
+    shelfTop + u * 0.047,
     depth / 2
   )
   leaning.rotation.z = -0.35
+
+  // Lower board: three framed pictures leaning against the wall, a
+  // little camera and the succulent
+  const photos = new THREE.Group()
+  group.add(photos)
+  const frameW = u * 0.075
+  const frameH = u * 0.095
+  FRAME_PICTURES.forEach((colors, i) => {
+    const frame = new THREE.Group()
+    frame.position.set(-width * 0.36 + i * u * 0.088, board / 2, depth * 0.45)
+    frame.rotation.x = -0.12 // leaning back
+    frame.rotation.y = (i - 1) * 0.08
+    addBox(frame, frameW, frameH, u * 0.012, 0x3a2a1f, 0, frameH / 2, 0)
+    const picture = new THREE.Mesh(
+      new THREE.PlaneGeometry(frameW * 0.78, frameH * 0.8),
+      new THREE.MeshStandardMaterial({
+        map: buildPictureTexture(colors, i)
+      })
+    )
+    picture.position.set(0, frameH / 2, u * 0.0065)
+    frame.add(picture)
+    photos.add(frame)
+  })
+  // Camera: body, lens and a red shutter button
+  const cameraX = width * 0.12
+  addBox(
+    photos,
+    u * 0.06,
+    u * 0.038,
+    u * 0.03,
+    0x222428,
+    cameraX,
+    board / 2 + u * 0.019,
+    depth * 0.55
+  )
+  addBox(
+    photos,
+    u * 0.026,
+    u * 0.026,
+    u * 0.02,
+    0x3a3d44,
+    cameraX,
+    board / 2 + u * 0.019,
+    depth * 0.55 + u * 0.024
+  )
+  addBox(
+    photos,
+    u * 0.01,
+    u * 0.006,
+    u * 0.01,
+    0xcb6040,
+    cameraX + u * 0.018,
+    board / 2 + u * 0.041,
+    depth * 0.55
+  )
+  // Succulent in a terracotta pot
   addBox(
     group,
-    u * 0.06,
     u * 0.05,
-    u * 0.06,
+    u * 0.045,
+    u * 0.05,
     0xb5653f,
-    width * 0.32,
-    u * 0.036,
+    width * 0.36,
+    board / 2 + u * 0.0225,
     depth / 2
   )
   addBox(
     group,
-    u * 0.07,
-    u * 0.04,
-    u * 0.07,
+    u * 0.06,
+    u * 0.035,
+    u * 0.06,
     0x3a8c5c,
-    width * 0.32,
-    u * 0.08,
+    width * 0.36,
+    board / 2 + u * 0.062,
     depth / 2
   )
-  return { group, topicBooks, pullOut: depth * 0.55 }
+
+  return { group, postBooks, photos, pullOut: depth * 0.55 }
 }
 
 // Coffee break poses, found in Blender (archive/assets/perrito.blend) and
@@ -543,7 +958,7 @@ const DRINK_STEPS = [
   { until: 5.0, from: 'reach', to: 'rest', hold: [0, 0] }
 ]
 
-const smoothstep = (x) => x * x * (3 - 2 * x)
+const smoothstep = x => x * x * (3 - 2 * x)
 
 function drinkPose(elapsed) {
   let start = 0
@@ -781,14 +1196,17 @@ function buildRoom({ size, wallHeight, unit }) {
     unit * 0.034,
     unit * 0.026
   )
+  // Soft additive halo around each bulb, so they glow instead of looking
+  // like plain white cubes (cheaper than a bloom pass)
+  const haloTexture = buildPuffTexture()
   const span = unit * 0.38 // distance between hooks
   const spacing = unit * 0.095 // distance between bulbs
   const hang = wallHeight - unit * 0.07
   const away = unit * 0.035 // in front of the wall face
-  const addString = (alongX) => {
+  const addString = alongX => {
     const points = []
     for (let d = unit * 0.06; d <= size - unit * 0.02; d += spacing) {
-      const sag = Math.sin(Math.PI * ((d % span) / span)) * unit * 0.06
+      const sag = Math.sin(Math.PI * ((d % span) / span)) * unit * 0.045
       const y = hang - sag
       const position = alongX
         ? new THREE.Vector3(d, y, away)
@@ -803,7 +1221,24 @@ function buildRoom({ size, wallHeight, unit }) {
       const bulb = new THREE.Mesh(bulbGeometry, material)
       bulb.position.copy(position).y -= unit * 0.02
       group.add(bulb)
-      bulbs.push({ material, phase: Math.random() * Math.PI * 2 })
+      const halo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: haloTexture,
+          color,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          depthWrite: false,
+          opacity: 0
+        })
+      )
+      halo.position.copy(bulb.position)
+      halo.scale.setScalar(unit * 0.13)
+      group.add(halo)
+      bulbs.push({
+        material,
+        halo: halo.material,
+        phase: Math.random() * Math.PI * 2
+      })
     }
     group.add(
       new THREE.Line(
@@ -818,7 +1253,171 @@ function buildRoom({ size, wallHeight, unit }) {
   return { group, floor, bulbs }
 }
 
-// Voxel-style floor lamp built from boxes, unit height (scaled to the dog)
+// Swiss railway style wall clock: white face, black bar markers, black
+// hands and a red second hand with a disc at its tip. Built facing +z,
+// origin at the face centre. Returns the hand pivots for updateClock
+function buildClock(radius) {
+  const group = new THREE.Group()
+  const r = radius
+  const depth = r * 0.25
+
+  const rim = new THREE.Mesh(
+    new THREE.CylinderGeometry(r * 1.1, r * 1.1, depth, 48),
+    new THREE.MeshStandardMaterial({
+      color: 0x8d969c,
+      metalness: 0.5,
+      roughness: 0.4
+    })
+  )
+  rim.rotation.x = Math.PI / 2
+  rim.position.z = -depth / 2
+  rim.castShadow = rim.receiveShadow = true
+  group.add(rim)
+
+  // Face with 60 minute bars and 12 thicker hour bars, drawn once
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 256
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, 256, 256)
+  ctx.fillStyle = '#111111'
+  ctx.translate(128, 128)
+  for (let i = 0; i < 60; i++) {
+    const hour = i % 5 === 0
+    ctx.save()
+    ctx.rotate((i / 60) * Math.PI * 2)
+    if (hour) ctx.fillRect(-5, -122, 10, 34)
+    else ctx.fillRect(-2, -122, 4, 10)
+    ctx.restore()
+  }
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(r, 48),
+    new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(canvas) })
+  )
+  face.position.z = 0.001
+  face.receiveShadow = true
+  group.add(face)
+
+  // Hands turn around z on pivots at the centre, pointing up (12) at 0
+  const black = new THREE.MeshStandardMaterial({ color: 0x111111 })
+  const red = new THREE.MeshStandardMaterial({ color: 0xd52b1e })
+  const hand = (width, length, tail, material, z) => {
+    const pivot = new THREE.Group()
+    pivot.position.z = z
+    const bar = new THREE.Mesh(
+      new THREE.BoxGeometry(width, length + tail, r * 0.02),
+      material
+    )
+    bar.position.y = (length - tail) / 2
+    pivot.add(bar)
+    group.add(pivot)
+    return pivot
+  }
+  const hour = hand(r * 0.12, r * 0.62, r * 0.2, black, r * 0.03)
+  const minute = hand(r * 0.09, r * 0.92, r * 0.22, black, r * 0.06)
+  const second = hand(r * 0.03, r * 0.6, r * 0.3, red, r * 0.09)
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(r * 0.11, r * 0.11, r * 0.02, 24),
+    red
+  )
+  disc.rotation.x = Math.PI / 2
+  disc.position.y = r * 0.6
+  second.add(disc)
+
+  return { group, hour, minute, second }
+}
+
+// Local time of a place, whatever the visitor's timezone: offset from
+// the visitor's clock, worked out once
+function timeZoneOffset(timeZone) {
+  const now = new Date()
+  now.setMilliseconds(0)
+  const parts = {}
+  for (const { type, value } of new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric'
+  }).formatToParts(now)) {
+    parts[type] = Number(value)
+  }
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  )
+  return asUtc - now.getTime()
+}
+
+// Read the result with getUTC* methods
+const placeNow = offset => new Date(Date.now() + offset)
+
+// The two views out of the window. The view alternates by day; clicking
+// the window switches it
+const PLACES = [
+  { label: '🇨🇭 Zürich', timeZone: 'Europe/Zurich' },
+  { label: '🇧🇴 La Paz · Illimani', timeZone: 'America/La_Paz' }
+]
+const dayNumber = () =>
+  Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000)
+
+const hhmm = date =>
+  `${String(date.getUTCHours()).padStart(2, '0')}:${String(
+    date.getUTCMinutes()
+  ).padStart(2, '0')}`
+
+// Small wooden side table with a drawer. Unit is the dog's height;
+// origin at the floor centre. Returns the height of its top
+function buildSideTable(unit) {
+  const group = new THREE.Group()
+  const u = unit
+  const height = u * 0.34
+  const top = u * 0.24
+  const wood = 0x7d5238
+  addBox(group, top, u * 0.025, top, 0x94633f, 0, height - u * 0.0125, 0)
+  for (const [x, z] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1]
+  ]) {
+    addBox(
+      group,
+      u * 0.025,
+      height - u * 0.025,
+      u * 0.025,
+      wood,
+      x * top * 0.4,
+      (height - u * 0.025) / 2,
+      z * top * 0.4
+    )
+  }
+  // Drawer under the top, knob facing the room
+  addBox(group, top * 0.85, u * 0.06, top * 0.85, wood, 0, height - u * 0.06, 0)
+  addBox(
+    group,
+    u * 0.02,
+    u * 0.02,
+    u * 0.012,
+    0xcb6040,
+    0,
+    height - u * 0.06,
+    top * 0.43
+  )
+  // Lower shelf
+  addBox(group, top * 0.85, u * 0.015, top * 0.85, wood, 0, u * 0.08, 0)
+  return { group, height }
+}
+
+// Bedside lamp: round-ish base, short stem and a stepped shade. Unit
+// height. Returns the bulb's local position so the lights sit inside
 function buildLamp() {
   const group = new THREE.Group()
   const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x1d5a66 })
@@ -827,41 +1426,51 @@ function buildLamp() {
     emissive: 0xfd8b51,
     emissiveIntensity: 0
   })
+  const bulbMaterial = new THREE.MeshStandardMaterial({
+    color: 0xfff1c9,
+    emissive: 0xffd27a,
+    emissiveIntensity: 0
+  })
+  const box = (w, h, d, material, y) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
+    mesh.position.y = y
+    group.add(mesh)
+    return mesh
+  }
 
-  const base = new THREE.Mesh(
-    new THREE.BoxGeometry(0.24, 0.05, 0.24),
-    frameMaterial
-  )
-  base.position.y = 0.025
+  const frame = [
+    box(0.45, 0.08, 0.45, frameMaterial, 0.04),
+    box(0.3, 0.1, 0.3, frameMaterial, 0.13),
+    box(0.08, 0.35, 0.08, frameMaterial, 0.35)
+  ]
+  // Stepped shade, wide at the bottom
+  box(0.72, 0.18, 0.72, shadeMaterial, 0.6)
+  box(0.58, 0.14, 0.58, shadeMaterial, 0.76)
+  box(0.42, 0.1, 0.42, shadeMaterial, 0.88)
+  // Bulb peeking out under the shade
+  box(0.2, 0.06, 0.2, bulbMaterial, 0.49)
 
-  const pole = new THREE.Mesh(
-    new THREE.BoxGeometry(0.05, 0.7, 0.05),
-    frameMaterial
-  )
-  pole.position.y = 0.4
-
-  const shadeBottom = new THREE.Mesh(
-    new THREE.BoxGeometry(0.32, 0.12, 0.32),
-    shadeMaterial
-  )
-  shadeBottom.position.y = 0.81
-
-  const shadeTop = new THREE.Mesh(
-    new THREE.BoxGeometry(0.24, 0.12, 0.24),
-    shadeMaterial
-  )
-  shadeTop.position.y = 0.93
-
-  // Base and pole cast shadows; the shade must not, since the lamp's light
-  // sits inside it and would otherwise be blocked completely
-  for (const mesh of [base, pole]) mesh.castShadow = mesh.receiveShadow = true
-  group.add(base, pole, shadeBottom, shadeTop)
-  return { group, shadeMaterial }
+  // Base and stem cast shadows; the shade and bulb must not, since the
+  // lamp's light sits inside them and would otherwise be blocked
+  for (const mesh of frame) mesh.castShadow = mesh.receiveShadow = true
+  return {
+    group,
+    shadeMaterial,
+    bulbMaterial,
+    light: new THREE.Vector3(0, 0.5, 0)
+  }
 }
 
 // focus: 'room' or 'shelf'. panelWidth: px covered by the page panel
-// (0 when closed). activeTopic: the topic book pulled out of the shelf
-const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
+// (0 when closed). activeTopic / activePost: books pulled out of the shelf
+// hero: the hero text is showing, so the room frames itself beside it
+const VoxelDog = ({
+  focus = 'room',
+  panelWidth = 0,
+  activeTopic = null,
+  activePost = null,
+  hero = false
+}) => {
   const refContainer = useRef()
   const [loading, setLoading] = useState(true)
   const refRenderer = useRef()
@@ -873,8 +1482,17 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
   const refUpdateView = useRef(null)
   const refFocus = useRef(focus)
   const refPanelWidth = useRef(panelWidth)
+  const refHero = useRef(hero)
   const refTopic = useRef(activeTopic)
-  const { colorMode } = useColorMode()
+  const refPost = useRef(activePost)
+  const { colorMode, toggleColorMode } = useColorMode()
+  const refColorMode = useRef(colorMode)
+  const refToggle = useRef(toggleColorMode)
+  useEffect(() => {
+    refToggle.current = toggleColorMode
+  }, [toggleColorMode])
+  // Last theme switch (not the first render): { mode, at }
+  const refThemeSwitch = useRef(null)
   const labelBg = useColorModeValue('brand.tealDeep', 'brand.sand')
   const labelColor = useColorModeValue('brand.cream', 'brand.night')
   const urlDogGLB = '/perrito.glb'
@@ -891,6 +1509,10 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       })
     }
     refresh()
+    if (refColorMode.current !== colorMode) {
+      refThemeSwitch.current = { mode: colorMode, at: performance.now() }
+      refColorMode.current = colorMode
+    }
     const id = setInterval(refresh, 60 * 1000)
     return () => clearInterval(id)
   }, [colorMode])
@@ -925,6 +1547,11 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       )
       renderer.setSize(scW, scH)
       renderer.outputEncoding = THREE.sRGBEncoding
+      // Filmic curve: bright lamp light rolls off softly instead of
+      // clipping to flat orange
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure =
+        refLightTarget.current.exposure || TONE_EXPOSURE.night
       // Soft shadows from the sun/moon and the reading lamp
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -955,8 +1582,11 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
 
       const initial = refLightTarget.current
 
-      const ambientLight = new THREE.AmbientLight(
+      // Sky colour from above, warm floor bounce from below: gives the
+      // walls and furniture some variation instead of one flat tone
+      const ambientLight = new THREE.HemisphereLight(
         initial.ambient.color,
+        FLOOR_BOUNCE,
         initial.ambient.intensity
       )
       scene.add(ambientLight)
@@ -974,19 +1604,25 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       directionalLight.shadow.normalBias = 0.03
       scene.add(directionalLight, directionalLight.target)
 
-      // Light source sits inside the floor lamp's shade (placed after load)
-      const lampLight = new THREE.PointLight(
+      // Reading lamp: a spotlight inside the shade pointing down makes a
+      // warm pool on Perrito and the rug; a weak fill (no shadows) warms
+      // the walls around it. Both placed after load
+      const lampLight = new THREE.SpotLight(
         initial.lamp.color,
         initial.lamp.intensity
       )
-      lampLight.position.set(0, 4, 2)
-      // A shadow-casting point light renders the scene 6 more times
-      // (one per cube face); too much for phones
-      lampLight.castShadow = !isPhone
+      lampLight.angle = 0.85
+      lampLight.penumbra = 0.8
+      lampLight.decay = 1
+      // One extra shadow render (a point light would need six)
+      lampLight.castShadow = true
       lampLight.shadow.mapSize.set(512, 512)
       lampLight.shadow.bias = -0.002
       lampLight.shadow.normalBias = 0.03
-      scene.add(lampLight)
+      scene.add(lampLight, lampLight.target)
+      const lampFill = new THREE.PointLight(initial.lamp.color, 0)
+      lampFill.decay = 1
+      scene.add(lampFill)
 
       refLights.current = {
         ambient: ambientLight,
@@ -995,6 +1631,16 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       }
 
       let lampShadeMaterial = null
+      // Lamp brightness and shade glow before the switch-on flicker
+      let lampLevel = initial.lamp.intensity
+      let glowLevel = initial.lampGlow
+      let clock = null
+      const clockOffset = timeZoneOffset('Europe/Zurich')
+      const placeOffsets = PLACES.map(place => timeZoneOffset(place.timeZone))
+      let place = dayNumber() % PLACES.length
+      let placeLevel = place
+      let lampBulbMaterial = null
+      let lampHalo = null
       let fairyBulbs = []
       let skyMaterial = null
       let plantLeaves = null
@@ -1014,7 +1660,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       let armL = null
       let mugPart = null
       let eyelids = null
-      // Topic books on the shelf: { mesh, restZ, pullOut, id }
+      // Post books on the shelf: { mesh, restZ, pullOut, slug, topic }
       const books = []
       const armRRest = new THREE.Vector3()
       const mugRestPos = new THREE.Vector3()
@@ -1073,11 +1719,17 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
           if (!label) return
           label.style.display = spot ? 'block' : 'none'
           if (!spot) return
-          label.textContent = spot.label
+          label.textContent =
+            typeof spot.label === 'function' ? spot.label() : spot.label
           label.style.left = `${x}px`
           label.style.top = `${y - 36}px`
         },
-        onPick: (spot) => {
+        onPick: (spot, event) => {
+          if (spot.action) {
+            spot.action(event)
+            return
+          }
+          if (!spot.href) return
           if (spot.external) {
             window.open(spot.href, '_blank', 'noopener')
             return
@@ -1120,6 +1772,12 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         let bottom = h
         if (panel && w < SHEET_BELOW) bottom = h * (1 - SHEET_HEIGHT)
         else if (panel) right = Math.max(w - panel, w * 0.3)
+        else if (refHero.current) {
+          const inset = heroInset(w)
+          left = Math.min(inset.left, w * 0.5)
+          right = w - inset.right
+          bottom = h - inset.bottom
+        }
         if (bottom - top < 80) top = 0
         return {
           w,
@@ -1179,7 +1837,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         }
         const { w, h } = freeArea()
         // Portrait phones are width-bound: let the room go nearly edge to edge
-        const fill = refPanelWidth.current ? 0.9 : w < h ? 0.98 : 0.82
+        const fill = refPanelWidth.current ? 0.9 : w < h ? 0.98 : 0.94
         return viewFor(roomPoints, fill)
       }
 
@@ -1208,7 +1866,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         }
       }
 
-      const updateGlide = (now) => {
+      const updateGlide = now => {
         const t = Math.min(1, (now - glide.start) / GLIDE_MS)
         const e = smoothstep(t)
         moveTo(
@@ -1229,7 +1887,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       refFit.current = resize
       refUpdateView.current = () => updateView({ animate: true })
 
-      const updateSway = (now) => {
+      const updateSway = now => {
         if (dragging || now - releasedAt < 2500) return
         offset.subVectors(camera.position, target)
         swaySpherical.setFromVector3(offset)
@@ -1251,10 +1909,18 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         camera.lookAt(target)
       }
 
-      loadGLTFModel(scene, urlDogGLB, {
-        receiveShadow: true,
-        castShadow: true
-      }).then((model) => {
+      // The posts for the bookshelf (written at build time)
+      const shelfPosts = fetch('/shelf.json')
+        .then(response => (response.ok ? response.json() : []))
+        .catch(() => [])
+
+      Promise.all([
+        loadGLTFModel(scene, urlDogGLB, {
+          receiveShadow: true,
+          castShadow: true
+        }),
+        shelfPosts
+      ]).then(([model, posts]) => {
         // Bounding box of the chair/dog only: the GLB also contains a flat
         // ground/shadow plane that would otherwise blow up the box
         const fullBox = new THREE.Box3().setFromObject(model)
@@ -1262,7 +1928,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         const box = new THREE.Box3()
         const childBox = new THREE.Box3()
         model.updateWorldMatrix(true, true)
-        model.traverse((child) => {
+        model.traverse(child => {
           if (!child.isMesh) return
           childBox.setFromObject(child)
           if (childBox.max.y - childBox.min.y < fullHeight * 0.01) {
@@ -1275,47 +1941,128 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         })
         if (box.isEmpty()) box.copy(fullBox)
         const size = box.getSize(new THREE.Vector3())
-        const { group: lamp, shadeMaterial } = buildLamp()
-        lampShadeMaterial = shadeMaterial
-        const lampHeight = size.y * 1.05
-        lamp.scale.setScalar(lampHeight)
-        lamp.position.set(
-          box.max.x + size.x * 0.2,
+
+        // Armchair: dark green instead of navy (stands out from the teal
+        // walls), with an aguayo throw over the left armrest
+        const body = model.getObjectByName('body')
+        if (body?.isMesh && body.material.map) {
+          const chairCells = CHAIR_COLORS.map(([index]) => index)
+          const chair = paletteBounds(body, chairCells)
+          repaintPalette(body.material.map, CHAIR_COLORS)
+          if (!chair.isEmpty()) {
+            const chairSize = chair.getSize(new THREE.Vector3())
+            // Armrest top: highest chair point along the left edge
+            const armWidth = chairSize.x * 0.17
+            let armTop = chair.min.y
+            const { position, uv } = body.geometry.attributes
+            const point = new THREE.Vector3()
+            const width = body.material.map.image.width
+            for (let i = 0; i < position.count; i++) {
+              if (!chairCells.includes(Math.floor(uv.getX(i) * width))) continue
+              point.fromBufferAttribute(position, i)
+              point.applyMatrix4(body.matrixWorld)
+              if (
+                point.x < chair.min.x + armWidth * 0.8 &&
+                point.z > chair.max.z - chairSize.z * 0.3
+              )
+                armTop = Math.max(armTop, point.y)
+            }
+            const blanket = buildThrow(
+              size.y,
+              armWidth,
+              chairSize.z * 0.35,
+              (armTop - chair.min.y) * 0.55
+            )
+            blanket.position.set(chair.min.x, armTop, chair.max.z)
+            scene.add(blanket)
+          }
+        }
+        // Side table right of the chair, next to the mug with a small bedside lamp on it:
+        // low enough to stay clear of Perrito's face, the window and the
+        // clock on the right wall
+        const table = buildSideTable(size.y)
+        const lampBase = new THREE.Vector3(
+          box.max.x + size.x * 0.16,
           box.min.y,
-          (box.min.z + box.max.z) / 2
+          box.max.z - size.z * 0.05
         )
+        table.group.position.copy(lampBase)
+        scene.add(table.group)
+        const lampHeight = size.y * 0.26
+        const {
+          group: lamp,
+          shadeMaterial,
+          bulbMaterial,
+          light: lightAt
+        } = buildLamp()
+        lampShadeMaterial = shadeMaterial
+        lampBulbMaterial = bulbMaterial
+        lamp.scale.setScalar(lampHeight)
+        lamp.position.copy(lampBase)
+        lamp.position.y += table.height
         scene.add(lamp)
-        lampLight.position.set(
-          lamp.position.x,
-          box.min.y + lampHeight * 0.85,
-          lamp.position.z
+        lamp.updateMatrixWorld()
+        lamp.localToWorld(lightAt)
+        lampLight.position.copy(lightAt)
+        // Aimed at Perrito's lap and the laptop
+        lampLight.target.position.set(
+          (box.min.x + box.max.x) / 2,
+          box.min.y + size.y * 0.4,
+          box.max.z - size.z * 0.3
         )
+        lampLight.distance = size.y * 2.5
+        lampFill.position.copy(lightAt)
+        lampFill.distance = size.y * 3
+        // Soft glow under the shade, faded in with the lamp
+        lampHalo = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: buildPuffTexture(),
+            color: 0xffc58a,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            depthWrite: false,
+            opacity: 0
+          })
+        )
+        lampHalo.position.copy(lightAt)
+        lampHalo.scale.setScalar(size.y * 0.35)
+        scene.add(lampHalo)
+        // The lamp is a light switch for the whole site
+        hotspots.add(lamp, {
+          label: () =>
+            refColorMode.current === 'dark' ? '☀️ Light mode' : '🌙 Dark mode',
+          action: () => refToggle.current()
+        })
 
         // Room corner turned 45 degrees: corner straight behind the
         // furniture, walls opening towards the camera. Size it so the chair,
         // lamp and the seasonal prop spot all fit with a margin.
         const rugCenterZ = (box.min.z + box.max.z) / 2
-        const lampReach = lampHeight * 0.17
+        const baseReach = size.y * 0.15
+        const margin = size.y * 0.12
+        // [x, z, margin]: the chair's back sits close to the walls so there
+        // is no empty gap behind it
+        const backMargin = size.y * 0.03
         const footprint = [
-          [box.min.x, box.min.z],
-          [box.max.x, box.min.z],
+          [box.min.x, box.min.z, backMargin],
+          [box.max.x, box.min.z, backMargin],
           [box.min.x, box.max.z],
           [box.max.x, box.max.z],
-          [lamp.position.x - lampReach, lamp.position.z - lampReach],
-          [lamp.position.x + lampReach, lamp.position.z - lampReach],
-          [lamp.position.x + lampReach, lamp.position.z + lampReach],
+          [lampBase.x - baseReach, lampBase.z - baseReach],
+          [lampBase.x + baseReach, lampBase.z - baseReach],
+          [lampBase.x + baseReach, lampBase.z + baseReach],
           [box.min.x - size.x * 0.45, rugCenterZ]
         ]
         const roomCenterX =
-          (Math.min(...footprint.map((p) => p[0])) +
-            Math.max(...footprint.map((p) => p[0]))) /
+          (Math.min(...footprint.map(p => p[0])) +
+            Math.max(...footprint.map(p => p[0]))) /
           2
-        const margin = size.y * 0.12
         // Inside the corner means z - cornerZ >= |x - roomCenterX|
-        const cornerZ =
-          Math.min(
-            ...footprint.map(([x, z]) => z - Math.abs(x - roomCenterX))
-          ) - margin
+        const cornerZ = Math.min(
+          ...footprint.map(
+            ([x, z, m = margin]) => z - Math.abs(x - roomCenterX) - m
+          )
+        )
         // Distance along each wall direction, to size the square floor
         const roomSize =
           Math.max(
@@ -1325,7 +2072,9 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
               return Math.max((dx + dz) / Math.SQRT2, (dz - dx) / Math.SQRT2)
             })
           ) +
-          margin * 2
+          margin * 2 +
+          // A little extra floor so the walls aren't crowded
+          size.y * 0.2
         const room = buildRoom({
           size: roomSize,
           wallHeight: size.y * 0.75,
@@ -1345,6 +2094,29 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         })
         room.group.add(roomWindow.group)
         skyMaterial = roomWindow.material
+        // Zurich or La Paz outside: hover shows the place and its time,
+        // clicking switches to the other view
+        hotspots.add(roomWindow.group, {
+          label: () =>
+            `${PLACES[place].label} ${hhmm(placeNow(placeOffsets[place]))}`,
+          action: () => {
+            place = (place + 1) % PLACES.length
+          }
+        })
+
+        // Station clock on the right wall, just left of the bookshelf
+        // (the chair hides most of the left wall's corner)
+        const clockRadius = size.y * 0.09
+        clock = buildClock(clockRadius)
+        clock.group.position.set(
+          roomSize * 0.8 - size.y * 0.36 - clockRadius,
+          size.y * 0.5,
+          size.y * 0.022
+        )
+        room.group.add(clock.group)
+        hotspots.add(clock.group, {
+          label: () => `🇨🇭 Zürich ${hhmm(placeNow(clockOffset))}`
+        })
 
         // Knitted rug under the chair's front and Perrito's feet
         const rug = buildRug(size.x * 0.55, size.y)
@@ -1357,24 +2129,31 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
 
         // Monstera in the open front-left corner, against the left wall
         const plant = buildPlant(size.y)
-        plant.group.position.set(size.y * 0.17, 0, roomSize * 0.86)
+        plant.group.position.set(size.y * 0.15, 0, roomSize * 0.84)
         room.group.add(plant.group)
         plantLeaves = plant.leaves
 
         // Wall shelf on the front part of the right wall
-        const { group: shelf, topicBooks, pullOut } = buildShelf(size.y)
-        shelf.position.set(roomSize * 0.8, size.y * 0.5, size.y * 0.01)
+        // Bookcase: lower board just under the wall's rail, books on top
+        // (low enough to stay under the fairy lights)
+        const {
+          group: shelf,
+          postBooks,
+          photos,
+          pullOut
+        } = buildShelf(size.y, posts)
+        shelf.position.set(roomSize * 0.82, size.y * 0.27, size.y * 0.01)
         room.group.add(shelf)
         hotspots.add(shelf, { label: '📚 Bookshelf', href: '/posts' })
-        for (const topic of TOPICS) {
-          const book = topicBooks[topic.id]
-          if (!book) continue
+        for (const book of postBooks) {
+          const topic = topicById(book.topic)
           hotspots.add(book.mesh, {
-            label: `${topic.emoji} ${topic.label}`,
-            href: `/posts#${topic.id}`
+            label: `${topic ? topic.emoji : '📖'} ${book.title}`,
+            href: `/posts/${book.slug}`
           })
-          books.push({ ...book, id: topic.id, pullOut })
+          books.push({ ...book, pullOut })
         }
+        hotspots.add(photos, { label: '📷 Photos coming soon' })
         scene.add(room.group)
 
         // Sun/moon shadows cover the whole room; lamp shadows reach the walls
@@ -1390,7 +2169,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
           cornerZ + roomSize / 2
         )
         lampLight.shadow.camera.near = 0.05
-        lampLight.shadow.camera.far = size.y * 3
+        lampLight.shadow.camera.far = size.y * 2.5
         lampLight.shadow.camera.updateProjectionMatrix()
 
         // Seasonal prop on the dog's free side (lamp is on the right)
@@ -1412,10 +2191,11 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         // Winter: a little snow cap settled on the lamp shade
         if (SEASON === 'winter') {
           const cap = new THREE.Mesh(
-            new THREE.BoxGeometry(0.26, 0.035, 0.26),
+            new THREE.BoxGeometry(0.38, 0.06, 0.38),
             new THREE.MeshStandardMaterial({ color: 0xffffff })
           )
-          cap.position.y = 0.99 + 0.0175
+          // On top of the shade
+          cap.position.y = 0.93 + 0.03
           lamp.add(cap)
         }
 
@@ -1493,23 +2273,23 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         // Dust motes drifting in the lamp light
         const dustCount = 40
         dustMinY = box.min.y
-        dustMaxY = box.min.y + lampHeight * 0.8
+        dustMaxY = box.min.y + size.y * 0.8
         const positions = new Float32Array(dustCount * 3)
         dustData = []
         for (let i = 0; i < dustCount; i++) {
-          const radius = Math.random() * lampHeight * 0.35
+          const radius = Math.random() * size.y * 0.35
           const angle = Math.random() * Math.PI * 2
-          const x = lamp.position.x + Math.cos(angle) * radius
-          const z = lamp.position.z + Math.sin(angle) * radius
+          const x = lampBase.x + Math.cos(angle) * radius
+          const z = lampBase.z + Math.sin(angle) * radius
           positions[i * 3] = x
-          positions[i * 3 + 1] = dustMinY + Math.random() * lampHeight * 0.8
+          positions[i * 3 + 1] = dustMinY + Math.random() * size.y * 0.8
           positions[i * 3 + 2] = z
           dustData.push({
             baseX: x,
             baseZ: z,
-            speed: lampHeight * (0.0006 + Math.random() * 0.0012),
+            speed: size.y * (0.0006 + Math.random() * 0.0012),
             phase: Math.random() * Math.PI * 2,
-            wobble: lampHeight * 0.02 * Math.random()
+            wobble: size.y * 0.02 * Math.random()
           })
         }
         dustGeometry = new THREE.BufferGeometry()
@@ -1519,7 +2299,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         )
         dustMaterial = new THREE.PointsMaterial({
           color: 0xffd9a0,
-          size: lampHeight * 0.022,
+          size: size.y * 0.022,
           transparent: true,
           opacity: 0,
           depthWrite: false
@@ -1535,10 +2315,10 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
 
         // Outlines to frame: every room vertex plus the furniture's box,
         // and the bookshelf on its own
-        const collectPoints = (object) => {
+        const collectPoints = object => {
           const points = []
           object.updateMatrixWorld(true)
-          object.traverse((mesh) => {
+          object.traverse(mesh => {
             if (!mesh.isMesh) return
             const positions = mesh.geometry.attributes.position
             for (let i = 0; i < positions.count; i++) {
@@ -1571,19 +2351,65 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         setLoading(false)
       })
 
+      // ms since the visitor switched to dark mode, or null
+      const sinceDarkSwitch = () => {
+        const change = refThemeSwitch.current
+        if (!change || change.mode !== 'dark') return null
+        return performance.now() - change.at
+      }
+
+      const lampFlicker = () => {
+        const t = sinceDarkSwitch()
+        if (t === null || t > FLICKER[FLICKER.length - 1]) return 1
+        // Alternates on/off at each edge, starting on
+        const edge = FLICKER.findIndex(e => t < e)
+        return edge % 2 === 0 ? 1 : 0.15
+      }
+
+      // Perrito glances up at the lamp after any theme switch: 0..1
+      const glance = () => {
+        const change = refThemeSwitch.current
+        if (!change) return 0
+        const t = performance.now() - change.at
+        const end = GLANCE.in + GLANCE.hold + GLANCE.out
+        if (t > end) return 0
+        if (t < GLANCE.in) return smoothstep(t / GLANCE.in)
+        if (t < GLANCE.in + GLANCE.hold) return 1
+        return smoothstep((end - t) / GLANCE.out)
+      }
+
       const updateLights = () => {
         const lights = refLights.current
         const targetValues = refLightTarget.current
         for (const key of Object.keys(lights)) {
           const light = lights[key]
           light.color.lerp(new THREE.Color(targetValues[key].color), 0.08)
+          if (key === 'lamp') continue
           light.intensity +=
             (targetValues[key].intensity - light.intensity) * 0.08
         }
+        // Lamp: comes up quickly, cools down slowly like a filament, and
+        // flickers a few times when the visitor switches to dark mode
+        const lampRate = (target, now) => (target > now ? 0.08 : 0.05)
+        lampLevel +=
+          (targetValues.lamp.intensity - lampLevel) *
+          lampRate(targetValues.lamp.intensity, lampLevel)
+        glowLevel +=
+          (targetValues.lampGlow - glowLevel) *
+          lampRate(targetValues.lampGlow, glowLevel)
+        const flicker = lampFlicker()
+        lights.lamp.intensity = lampLevel * flicker
         if (lampShadeMaterial) {
-          lampShadeMaterial.emissiveIntensity +=
-            (targetValues.lampGlow - lampShadeMaterial.emissiveIntensity) * 0.08
+          const glow = glowLevel * flicker
+          lampShadeMaterial.emissiveIntensity = glow
+          lampBulbMaterial.emissiveIntensity = 0.3 + glow * 2
+          lampHalo.material.opacity = glow * 0.6
         }
+        refRenderer.current.toneMappingExposure +=
+          (targetValues.exposure - refRenderer.current.toneMappingExposure) *
+          0.08
+        lampFill.color.copy(lights.lamp.color)
+        lampFill.intensity = lights.lamp.intensity * LAMP_FILL
         if (dustMaterial) {
           dustMaterial.opacity +=
             (targetValues.dust - dustMaterial.opacity) * 0.08
@@ -1600,7 +2426,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       }
 
       // Z bubbles: rise, drift right, grow and fade, staggered by a third
-      const updateSleep = (time) => {
+      const updateSleep = time => {
         if (!zOrigin) return
         // Ease so the lid starts and ends its swing gently
         const eased = sleepLevel * sleepLevel * (3 - 2 * sleepLevel)
@@ -1609,6 +2435,12 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
           // Screen lights the face in the dark, switches off with the lid
           const glow = 0.25 + (refLightTarget.current.lampGlow || 0) * 1.2
           screenLight.intensity = glow * (1 - eased)
+          // His editor follows the site theme: white glow in light mode,
+          // dim blue in dark mode
+          screenLight.color.lerp(
+            refColorMode.current === 'dark' ? SCREEN_DARK : SCREEN_LIGHT,
+            0.05
+          )
         }
         for (let i = 0; i < zSprites.length; i++) {
           const sprite = zSprites[i]
@@ -1616,13 +2448,14 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
           sprite.visible = sleepLevel > 0.01
           if (!sprite.visible) continue
           sprite.position.set(
-            zOrigin.x + t * zScale * 0.35 + Math.sin(t * 6 + i) * zScale * 0.03,
-            zOrigin.y + t * zScale * 0.55,
+            zOrigin.x + t * zScale * 0.22 + Math.sin(t * 6 + i) * zScale * 0.02,
+            zOrigin.y + t * zScale * 0.32,
             zOrigin.z
           )
-          sprite.scale.setScalar(zScale * (0.18 + t * 0.24))
+          // Small and soft, fading out before they leave the room
+          sprite.scale.setScalar(zScale * (0.08 + t * 0.1))
           sprite.material.rotation = Math.sin(t * 4 + i) * 0.25
-          sprite.material.opacity = Math.sin(Math.PI * t) * sleepLevel
+          sprite.material.opacity = Math.sin(Math.PI * t) * 0.8 * sleepLevel
         }
       }
 
@@ -1646,7 +2479,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
 
         // Typing: bursts of quick, uneven taps (paws lift = negative x).
         // Asleep: arms droop a little onto the closed laptop
-        const tap = (phase) =>
+        const tap = phase =>
           Math.max(
             0,
             Math.sin(time * 0.45 + phase) * Math.sin(time * 0.13 + phase * 2)
@@ -1708,6 +2541,10 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
             if (drink.sipping) rx += Math.sin(time * 0.3) * 0.03
             ry = drink.headRy
           }
+          // Glance up towards the lamp (his left, +x) after a theme switch
+          const look = glance() * awake
+          rx -= 0.15 * look
+          ry += 0.45 * look
           headPart.rotation.set(rx, ry, 0.12 * eased)
         }
 
@@ -1732,11 +2569,13 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
 
       // Fairy lights twinkle softly, brighter as the room gets darker
       // Window sky follows the real clock
-      const updateSky = (time) => {
+      const updateSky = time => {
         if (!skyMaterial) return
         const sky = refLightTarget.current.sky
         const u = skyMaterial.uniforms
         u.uTime.value = time
+        placeLevel += (place - placeLevel) * 0.04
+        u.uPlace.value = placeLevel
         if (!sky) return
         u.uTop.value.setHex(sky.top)
         u.uBottom.value.setHex(sky.bottom)
@@ -1747,22 +2586,48 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       }
 
       // Monstera leaves sway very gently
-      const updatePlant = (time) => {
+      // Stop-to-go: the second hand sweeps round in 58.5 s, waits at 12,
+      // and the minute hand jumps when the full minute starts
+      const updateClock = () => {
+        if (!clock) return
+        const now = placeNow(clockOffset)
+        const seconds = now.getUTCSeconds() + now.getUTCMilliseconds() / 1000
+        const minutes = now.getUTCMinutes()
+        const hours = (now.getUTCHours() % 12) + minutes / 60
+        const turn = -Math.PI * 2 // clockwise
+        clock.second.rotation.z = turn * Math.min(seconds / 58.5, 1)
+        clock.minute.rotation.z = (turn * minutes) / 60
+        clock.hour.rotation.z = (turn * hours) / 12
+      }
+
+      const updatePlant = time => {
         if (!plantLeaves) return
         plantLeaves.rotation.z = Math.sin(time * 0.012) * 0.03
         plantLeaves.rotation.x = Math.sin(time * 0.009 + 1) * 0.02
       }
 
-      const updateFairyLights = (time) => {
-        const night = refLightTarget.current.lampGlow || 0
-        const level = 0.2 + night * 0.75
-        for (const bulb of fairyBulbs) {
-          bulb.material.emissiveIntensity =
-            level * (0.7 + 0.3 * Math.sin(time * 0.035 + bulb.phase))
-        }
+      // Follow the lamp's glow; after a switch to dark mode they come on
+      // one by one along the string
+      const updateFairyLights = time => {
+        const night = glowLevel
+        const since = sinceDarkSwitch()
+        fairyBulbs.forEach((bulb, i) => {
+          const on =
+            since === null
+              ? 1
+              : THREE.MathUtils.clamp(
+                  (since - CASCADE.start - i * CASCADE.step) / CASCADE.fade,
+                  0,
+                  1
+                )
+          const lit = night * on
+          const twinkle = 0.7 + 0.3 * Math.sin(time * 0.035 + bulb.phase)
+          bulb.material.emissiveIntensity = (0.2 + lit * 0.75) * twinkle
+          bulb.halo.opacity = lit * 0.55 * twinkle
+        })
       }
 
-      const updateDust = (time) => {
+      const updateDust = time => {
         if (!dustGeometry) return
         const positionAttr = dustGeometry.attributes.position
         for (let i = 0; i < dustData.length; i++) {
@@ -1783,9 +2648,13 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
       }
 
       // The open topic's book slides out of the shelf towards the room
+      // Pull out the open post's book, or every book of the chosen topic
       const updateBooks = () => {
         for (const book of books) {
-          const out = book.id === refTopic.current ? book.pullOut : 0
+          const active =
+            book.slug === refPost.current ||
+            (refTopic.current && book.topic === refTopic.current)
+          const out = active ? book.pullOut : 0
           book.mesh.position.z +=
             (book.restZ + out - book.mesh.position.z) * 0.12
         }
@@ -1829,6 +2698,7 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
         updateFairyLights(time)
         updateSky(time)
         updatePlant(time)
+        updateClock()
         updateDog(performance.now(), time)
         updateBooks()
 
@@ -1850,12 +2720,14 @@ const VoxelDog = ({ focus = 'room', panelWidth = 0, activeTopic = null }) => {
   useEffect(() => {
     refFocus.current = focus
     refPanelWidth.current = panelWidth
+    refHero.current = hero
     if (refUpdateView.current) refUpdateView.current()
-  }, [focus, panelWidth])
+  }, [focus, panelWidth, hero])
 
   useEffect(() => {
     refTopic.current = activeTopic
-  }, [activeTopic])
+    refPost.current = activePost
+  }, [activeTopic, activePost])
 
   // Canvas follows the window size
   useEffect(() => {

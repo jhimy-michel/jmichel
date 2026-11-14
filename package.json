@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "predev": "node scripts/generate-shelf.js",
     "dev": "next dev -H 0.0.0.0",
+    "prebuild": "node scripts/generate-shelf.js",
     "build": "next build",
     "postbuild": "node scripts/generate-sitemap.js",
     "prettier": "prettier -write .",

@@ -1,8 +1,6 @@
 import Head from 'next/head'
-import NextLink from 'next/link'
 import {
   Box,
-  Button,
   Container,
   Heading,
   HStack,
@@ -17,6 +15,7 @@ import VoxelDogLoader from '../voxel-dog-loader'
 import Panel, { PANEL_WIDTH } from '../panel'
 import { useHash } from '../../libs/use-hash'
 import { topicById } from '../../libs/topics'
+import { HERO_TEXT_WIDTH, SITE_PADDING, SITE_WIDTH } from '../../libs/layout'
 
 // The 3D room (three.js, the biggest part of the site) loads on its own,
 // so page text never waits for it; a spinner holds its place meanwhile
@@ -29,59 +28,62 @@ const SITE_URL = 'https://jmichel.ch'
 const DESCRIPTION =
   "Jhimy Michel's homepage - Software Engineer from Bolivia, based in Switzerland & Spain. Posts about tech, travel, and life."
 
-// Name and the ways in, over the bottom of the full-screen room
+// Name and the ways in. Wide screens: a column on the left, vertically
+// centred, with the room framed to its right. Narrower: under the room.
+// Same column as the navbar
 const HeroText = () => {
-  const accent = useColorModeValue('brand.teal', 'brand.orange')
+  const muted = useColorModeValue('gray.600', 'gray.400')
   return (
     <Container
-      maxW="container.md"
+      maxW={`${SITE_WIDTH}px`}
+      px={`${SITE_PADDING}px`}
       position="absolute"
-      bottom={[6, 10]}
+      top={0}
+      bottom={0}
       left={0}
       right={0}
+      display="flex"
+      flexDirection="column"
+      justifyContent={{ base: 'flex-end', lg: 'center' }}
+      pb={{ base: 8, lg: 0 }}
       pointerEvents="none"
     >
-      <Heading as="h1" variant="page-title">
-        Jhimy Michel
-      </Heading>
-      <Text>Software engineer, Cloud and AI.</Text>
-      <HStack mt={4} spacing={2} pointerEvents="auto">
-        <Button
-          as={NextLink}
-          href="/#about"
-          scroll={false}
-          variant="solid"
-          bg={accent}
-          color={useColorModeValue('white', 'brand.night')}
-          _hover={{ opacity: 0.85 }}
-          size="sm"
+      <Box maxW={{ lg: `${HERO_TEXT_WIDTH}px` }}>
+        <Heading
+          as="h1"
+          variant="page-title"
+          fontSize={['3xl', null, '4xl', '5xl']}
         >
-          About me
-        </Button>
-        <Button as={NextLink} href="/posts" variant="outline" size="sm">
-          Posts
-        </Button>
-        <IconButton
-          as="a"
-          href="https://github.com/jhimy-michel"
-          target="_blank"
-          aria-label="GitHub"
-          icon={<IoLogoGithub />}
-          variant="ghost"
-          size="sm"
-          fontSize="lg"
-        />
-        <IconButton
-          as="a"
-          href="https://www.linkedin.com/in/jhimy-michel/"
-          target="_blank"
-          aria-label="LinkedIn"
-          icon={<IoLogoLinkedin />}
-          variant="ghost"
-          size="sm"
-          fontSize="lg"
-        />
-      </HStack>
+          Jhimy Michel
+        </Heading>
+        <Text fontSize={{ lg: 'lg' }}>Software engineer, Cloud and AI.</Text>
+        {/* About and Posts live in the navbar; here only the profiles */}
+        <HStack mt={3} ml={-2} spacing={1} pointerEvents="auto">
+          <IconButton
+            as="a"
+            href="https://github.com/jhimy-michel"
+            target="_blank"
+            aria-label="GitHub"
+            icon={<IoLogoGithub />}
+            variant="ghost"
+            size="sm"
+            fontSize="lg"
+          />
+          <IconButton
+            as="a"
+            href="https://www.linkedin.com/in/jhimy-michel/"
+            target="_blank"
+            aria-label="LinkedIn"
+            icon={<IoLogoLinkedin />}
+            variant="ghost"
+            size="sm"
+            fontSize="lg"
+          />
+        </HStack>
+        <Text mt={2} fontSize="sm" color={muted}>
+          Psst, the room is clickable 👀
+        </Text>
+      </Box>
     </Container>
   )
 }
@@ -99,6 +101,14 @@ const Main = ({ children, router }) => {
     router.pathname === '/posts' && topicById(hash.slice(1))
       ? hash.slice(1)
       : null
+  // Soft lamplight glow behind the room, centred where the room sits
+  const glow = useColorModeValue(
+    'rgba(203, 96, 64, 0.08)',
+    'rgba(253, 139, 81, 0.14)'
+  )
+  // Reading a post keeps its book pulled out
+  const activePost =
+    router.pathname === '/posts/[slug]' ? router.query.slug : null
   const pagePath = router.asPath.split('#')[0]
   const pageUrl = `${SITE_URL}${pagePath === '/' ? '' : pagePath}`
 
@@ -122,11 +132,21 @@ const Main = ({ children, router }) => {
         <title>Jhimy Michel</title>
       </Head>
       <NavBar path={router.asPath}></NavBar>
-      <Box position="relative" h="100svh" overflow="hidden">
+      <Box
+        position="relative"
+        h="100svh"
+        overflow="hidden"
+        bgImage={{
+          base: `radial-gradient(ellipse 80% 45% at 50% 42%, ${glow}, transparent 70%)`,
+          lg: `radial-gradient(ellipse 45% 60% at 62% 52%, ${glow}, transparent 70%)`
+        }}
+      >
         <VoxelDog
           focus={onShelf ? 'shelf' : 'room'}
           panelWidth={panelOpen ? panelWidth : 0}
           activeTopic={activeTopic}
+          activePost={activePost}
+          hero={!panelOpen}
         />
         {!panelOpen && <HeroText />}
       </Box>

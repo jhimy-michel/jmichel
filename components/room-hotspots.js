@@ -5,7 +5,7 @@ import * as THREE from 'three'
 // Rays hit the whole scene so the dog's head still blocks the laptop behind it.
 const CLICK_SLOP = 6 // px a pointer may move and still count as a click
 
-const isShown = (object) => {
+const isShown = object => {
   for (let o = object; o; o = o.parent) if (!o.visible) return false
   return true
 }
@@ -18,7 +18,7 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
   let downAt = null
   let enabled = false
 
-  const spotAt = (event) => {
+  const spotAt = event => {
     const rect = dom.getBoundingClientRect()
     pointer.set(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -27,10 +27,10 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
     raycaster.setFromCamera(pointer, camera)
     const hit = raycaster
       .intersectObjects(scene.children, true)
-      .find((h) => h.object.isMesh && isShown(h.object))
+      .find(h => h.object.isMesh && isShown(h.object))
     if (!hit) return null
     for (let o = hit.object; o; o = o.parent) {
-      const spot = spots.find((s) => s.object === o)
+      const spot = spots.find(s => s.object === o)
       if (spot) return spot
     }
     return null
@@ -38,7 +38,7 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
 
   const setHovered = (spot, event) => {
     hovered = spot
-    dom.style.cursor = spot ? 'pointer' : ''
+    dom.style.cursor = spot?.href || spot?.action ? 'pointer' : ''
     const rect = dom.getBoundingClientRect()
     onHover(
       spot,
@@ -49,7 +49,7 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
 
   // Mice fire many moves per frame: test the scene at most once a frame
   let pendingMove = null
-  const handleMove = (event) => {
+  const handleMove = event => {
     if (!enabled || event.pointerType !== 'mouse' || event.buttons) return
     if (!pendingMove) {
       requestAnimationFrame(() => {
@@ -60,16 +60,16 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
     }
     pendingMove = event
   }
-  const handleDown = (event) => {
+  const handleDown = event => {
     downAt = { x: event.clientX, y: event.clientY }
   }
-  const handleUp = (event) => {
+  const handleUp = event => {
     if (!enabled || !downAt) return
     const moved = Math.hypot(event.clientX - downAt.x, event.clientY - downAt.y)
     downAt = null
     if (moved > CLICK_SLOP) return
     const spot = spotAt(event)
-    if (spot) onPick(spot)
+    if (spot) onPick(spot, event)
   }
   const handleLeave = () => {
     if (hovered) setHovered(null)
@@ -81,8 +81,10 @@ export function createHotspots({ scene, camera, dom, onHover, onPick }) {
   dom.addEventListener('pointerleave', handleLeave)
 
   return {
-    add(object, { label, href, external = false }) {
-      if (object) spots.push({ object, label, href, external })
+    // label: text or a function returning it. A spot opens `href` or,
+    // instead, runs `action(event)` when clicked
+    add(object, { label, href, external = false, action }) {
+      if (object) spots.push({ object, label, href, external, action })
     },
     setEnabled(value) {
       enabled = value

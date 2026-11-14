@@ -3,8 +3,7 @@ import NextLink from 'next/link'
 import {
   Container,
   Box,
-  Stack,
-  Flex,
+  HStack,
   Menu,
   MenuItem,
   MenuList,
@@ -14,49 +13,40 @@ import {
 import { HamburgerIcon } from '@chakra-ui/icons'
 import ThemeToggleButton from './theme-toggle-button'
 import LinkItem from './utils/linkItem'
+import { SITE_PADDING, SITE_WIDTH } from '../libs/layout'
 
-const NavBar = (props) => {
+// Floats over the room (no background strip), in the same column as the
+// hero text: logo and name on the left, links and theme on the right
+const NavBar = props => {
   const { path } = props
-  const isHome = path.split('#')[0] === '/'
 
-  // Floats over the room: no background strip
   return (
     <Box position="fixed" as="nav" w="100%" zIndex={1}>
       <Container
         display="flex"
-        p={2}
-        maxW="container.md"
-        wrap="wrap"
-        align="center"
-        justify="space-between"
+        alignItems="center"
+        justifyContent="space-between"
+        maxW={`${SITE_WIDTH}px`}
+        px={`${SITE_PADDING}px`}
+        py={2}
       >
-        <Flex align="center" mr={5}>
-          <Logo showName={!isHome} />
-        </Flex>
-        <Stack
-          direction={{ base: 'column', md: 'row' }}
-          display={{ base: 'none', md: 'flex' }}
-          width={{ base: 'full', md: 'auto' }}
-          alignItems="center"
-          flexGrow={1}
-          mt={{ base: 4, nmd: 0 }}
-        >
-          <LinkItem href="/#about" path={path}>
-            About
-          </LinkItem>
-          <LinkItem href="/posts" path={path}>
-            Posts
-          </LinkItem>
-        </Stack>
-
-        <Box flex={1} align="right">
+        <Logo />
+        <HStack spacing={1}>
+          <HStack spacing={1} display={{ base: 'none', md: 'flex' }}>
+            <LinkItem href="/#about" path={path}>
+              About
+            </LinkItem>
+            <LinkItem href="/posts" path={path}>
+              Posts
+            </LinkItem>
+          </HStack>
           <ThemeToggleButton />
-          <Box ml={2} display={{ base: 'inline-block', md: 'none' }}>
+          <Box display={{ base: 'inline-block', md: 'none' }}>
             <Menu>
               <MenuButton
                 as={IconButton}
                 icon={<HamburgerIcon />}
-                variant="outline"
+                variant="ghost"
                 aria-label="Options"
               />
               <MenuList>
@@ -69,7 +59,7 @@ const NavBar = (props) => {
               </MenuList>
             </Menu>
           </Box>
-        </Box>
+        </HStack>
       </Container>
     </Box>
   )
